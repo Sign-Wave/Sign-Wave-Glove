@@ -19,10 +19,11 @@ def read_flex_sensor(channel):
 def home():
     """Serve the index.html file"""
     return render_template('index.html')
-@app.route('/translate', methods=["POST"])
+@app.route('/translate', methods = ["POST"])
 def translate():
     """API to return flex sensor data"""
     str_to_return = "REST"
+    time.sleep(1)
     value_0 = read_flex_sensor(0)
     value_1 = read_flex_sensor(1)
     value_2 = read_flex_sensor(2)
