@@ -1,33 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Flex Sensor Data</title>
-</head>
-<body>
+  </head>
+  <body>
     <h1>Flex Sensor Reading</h1>
     <p id="sensor-value">Loading...</p>
 
     <script>
-        function fetchSensorData() {
-            fetch("http://172.20.10.6:5000/sensor")  // Replace with your Raspberry Pi's IP
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById("sensor-value").innerText = "Flex Value 0: " + data.flex_value_0 + 
-                "\nFlex Value 1: " + data.flex_value_1 + 
-                "\nFlex Value 2: " + data.flex_value_2 + 
-                "\nFlex Value 3: " + data.flex_value_3 + 
-                "\nFlex Value 4: " + data.flex_value_4;
-            })
-            .catch(error => console.error("Error:", error));
-        }
+      function fetchSensorData() {
+        fetch("http://192.168.2.15:5000/sensor") // Replace with your Raspberry Pi's IP
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById("sensor-value").innerText =
+              "Flex Value 0: " +
+              data.flex_value_0 +
+              "\nFlex Value 1: " +
+              data.flex_value_1 +
+              "\nFlex Value 2: " +
+              data.flex_value_2 +
+              "\nFlex Value 3: " +
+              data.flex_value_3 +
+              "\nFlex Value 4: " +
+              data.flex_value_4;
+          })
+          .catch((error) => console.error("Error:", error));
+      }
 
-        // Fetch new data every 1 second (1000ms)
-        setInterval(fetchSensorData, 1000);
+      // Fetch new data every 1 second (1000ms)
+      setInterval(fetchSensorData, 1000);
 
-        // Fetch data immediately when the page loads
-        fetchSensorData();
+      // Fetch data immediately when the page loads
+      fetchSensorData();
     </script>
-</body>
+  </body>
 </html>
