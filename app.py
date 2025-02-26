@@ -79,6 +79,23 @@ def emit_sensor_data():
 @app.route('/')
 def home():
     return render_template('index.html')
+@app.route('/translate', methods = ["POST"])
+def translate():
+    """API to return flex sensor data"""
+    str_to_return = "REST"
+    time.sleep(1)
+    value_0 = read_flex_sensor(0)
+    value_1 = read_flex_sensor(1)
+    value_2 = read_flex_sensor(2)
+    value_3 = read_flex_sensor(3)
+    value_4 = read_flex_sensor(4)
+    avg_1_to_4 = (value_4 + value_3 + value_2 + value_1)/4
+    if (avg_1_to_4 > 900 and value_0 <500):
+        str_to_return = "A"
+    if (avg_1_to_4 < 100 and value_0 > 900):
+        str_to_return = "B"
+    return str_to_return
+
 
 @app.route('/sensor')
 def sensor_data():
