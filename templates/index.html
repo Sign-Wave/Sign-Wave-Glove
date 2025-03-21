@@ -3,36 +3,46 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Flex Sensor Data</title>
+    <title>Sensor Data</title>
   </head>
   <body>
-    <h1>Flex Sensor Reading</h1>
-    <p id="sensor-value">Loading...</p>
-
+    <h1>Flex Sensor Readings</h1>
+    <p id="flex-values">Loading...</p>
+    
+    <h1>IMU Data</h1>
+    <p id="imu-values">Loading...</p>
+    
     <script>
       function fetchSensorData() {
-        fetch("http://192.168.2.15:5000/sensor") // Replace with your Raspberry Pi's IP
+        fetch("http://172.20.10.6:5000/sensor") // Replace with your Raspberry Pi's IP
           .then((response) => response.json())
           .then((data) => {
-            document.getElementById("sensor-value").innerText =
-              "Flex Value 0: " +
-              data.flex_value_0 +
-              "\nFlex Value 1: " +
-              data.flex_value_1 +
-              "\nFlex Value 2: " +
-              data.flex_value_2 +
-              "\nFlex Value 3: " +
-              data.flex_value_3 +
-              "\nFlex Value 4: " +
-              data.flex_value_4;
+            // Update flex sensor values
+            document.getElementById("flex-values").innerText =
+              "Flex Value 0: " + data.flex_values[0] + "\n" +
+              "Flex Value 1: " + data.flex_values[1] + "\n" +
+              "Flex Value 2: " + data.flex_values[2] + "\n" +
+              "Flex Value 3: " + data.flex_values[3] + "\n" +
+              "Flex Value 4: " + data.flex_values[4];
+            
+            // Update IMU data
+            document.getElementById("imu-values").innerText =
+              "Accelerometer:\n" +
+              "X: " + data.imu_data.accelerometer.x.toFixed(2) + " m/s²\n" +
+              "Y: " + data.imu_data.accelerometer.y.toFixed(2) + " m/s²\n" +
+              "Z: " + data.imu_data.accelerometer.z.toFixed(2) + " m/s²\n\n" +
+              "Gyroscope:\n" +
+              "X: " + data.imu_data.gyroscope.x.toFixed(2) + " °/s\n" +
+              "Y: " + data.imu_data.gyroscope.y.toFixed(2) + " °/s\n" +
+              "Z: " + data.imu_data.gyroscope.z.toFixed(2) + " °/s";
           })
           .catch((error) => console.error("Error:", error));
       }
 
-      // Fetch new data every 1 second (1000ms)
+      // Fetch new data every second
       setInterval(fetchSensorData, 1000);
-
-      // Fetch data immediately when the page loads
+      
+      // Fetch data on page load
       fetchSensorData();
     </script>
   </body>

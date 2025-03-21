@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import smbus
 import math
 import os
