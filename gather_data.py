@@ -1,21 +1,26 @@
 import tkinter as tk
 from tkinter import ttk
+from tkinter import messagebox
 from PIL import Image, ImageTk
 import time
 import threading
+from BMI_test import initialize_spi
+from spi_funcs import SPI_DEVICE
+import registers as reg
 
-THUMB_IMU = 0
-INDEX_IMU = 1
-MIDDLE_IMU = 2
-RING_IMU =3
-PINKY_IMU =4
+THUMB_IMU_CS = 8 # CS_B for Thumb IMU is GPIO8 (CE0) or pin 24
+THUMB_IMU = SPI_DEVICE(THUMB_IMU_CS, 0)
+INDEX_IMU_CS = 7 # CS_B for index IMU is GPIO7 (CE1) or Pin 26 
+INDEX_IMU = SPI_DEVICE(INDEX_IMU_CS, 0)
+MIDDLE_IMU_CS = 17 # CS_B for MIDDLE IMU is GPIO17 or Pin 11
+MIDDLE_IMU = SPI_DEVICE(MIDDLE_IMU_CS, 0)
+RING_IMU_CS = 27 # CS_B for index IMU is GPIO27 or Pin 13
+RING_IMU = SPI_DEVICE(RING_IMU_CS, 0)
+PINKY_IMU_CS = 22 # CS_B for index IMU is GPIO22 or Pin 15
+PINKY_IMU = SPI_DEVICE(PINKY_IMU_CS, 0)
 
-THUMB_FLEX = 1
-INDEX_FLEX = 2
-MIDDLE_FLEX = 3
-RING_FLEX = 4
-PINKY_FLEX = 5
-
+ADC_CS = 23 # CS_B for index IMU is GPIO23 or Pin 16
+ADC = SPI_DEVICE(ADC_CS, 0)
 
 class App(tk.Tk):
     def __init__(self):
@@ -82,8 +87,52 @@ class LetterScreen(tk.Frame):
         print("Done disable_buttons")
 
     def read_sensors(self):
-        time.sleep(5)
-        return
+        sensor_dict = {
+            "THUMB_FLEX":[],
+            "THUMB_GYR_X":[],
+            "THUMB_ACC_X":[],
+            "THUMB_GYR_Y":[],
+            "THUMB_ACC_Y":[],
+            "THUMB_GYR_Z":[],
+            "THUMB_ACC_Z":[],
+
+            "INDEX_FLEX":[],
+            "INDEX_GYR_X":[],
+            "INDEX_ACC_X":[],
+            "INDEX_GYR_Y":[],
+            "INDEX_ACC_Y":[],
+            "INDEX_GYR_Z":[],
+            "INDEX_ACC_Z":[],
+
+            "MIDDLE_FLEX":[],
+            "MIDDLE_GYR_X":[],
+            "MIDDLE_ACC_X":[],
+            "MIDDLE_GYR_Y":[],
+            "MIDDLE_ACC_Y":[],
+            "MIDDLE_GYR_Z":[],
+            "MIDDLE_ACC_Z":[],
+
+            "RING_FLEX":[],
+            "RING_GYR_X":[],
+            "RING_ACC_X":[],
+            "RING_GYR_Y":[],
+            "RING_ACC_Y":[],
+            "RING_GYR_Z":[],
+            "RING_ACC_Z":[],
+
+            "PINKY_FLEX":[],
+            "PINKY_GYR_X":[],
+            "PINKY_ACC_X":[],
+            "PINKY_GYR_Y":[],
+            "PINKY_ACC_Y":[],
+            "PINKY_GYR_Z":[],
+            "PINKY_ACC_Z":[],
+        }
+        for i in range(0, 20):
+            # TODO implement sensor reading
+            pass
+
+        return sensor_dict
 
 
     def update_letter(self, letter):
@@ -107,9 +156,32 @@ class LetterScreen(tk.Frame):
             print(f"Error loading image: {e}")
 
 def gui():
+    def on_closing():
+        if messagebox.askokcancel("Quit", "Do you want to quit?"):
+            close_all()
+            app.destroy()
     app = App()
+    app.protocol("WM_DELETE_WINDOW", on_closing)
     app.mainloop()
+
+def initialize_all():
+    THUMB_IMU.initialize_spi()
+    INDEX_IMU.initialize_spi() 
+    MIDDLE_IMU.initialize_spi() 
+    RING_IMU.initialize_spi() 
+    PINKY_IMU.initialize_spi() 
+    ADC.initialize_spi() 
+
+def close_all():
+    THUMB_IMU.clean_up()
+    INDEX_IMU.clean_up() 
+    MIDDLE_IMU.clean_up() 
+    RING_IMU.clean_up() 
+    PINKY_IMU.clean_up() 
+    ADC.clean_up() 
 
 if __name__ == '__main__':
     gui_thread = threading.Thread(target=gui, name='gui thread')
     gui_thread.start()
+    initialize_all()
+
