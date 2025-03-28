@@ -2,7 +2,7 @@
 2025 SignWave
 """
 import spidev
-import RPi.GPIO as GPIO
+import gpiod
 import time
 
 __SPI_BUS_SPEED__ = 3_600_000 #Hz (3.6 MHz) constrained by ADC
@@ -26,11 +26,16 @@ class SPI_DEVICE:
 
         """
         self.CS_PIN = DEVICE_CS_PIN
-        self.SPI_BUS=0
+        self.SPI_BUS=SPI_BUS
         self.SPI_MODE = SPI_MODE
-        self.intialized = False
-        self.spi = None
-        self.spi_bus_speed = SPI_SPEED
+        self.spi = spidev.SpiDev()
+        self.spi.open(SPI_BUS, 0)
+        self.spi.max_speed_hz = SPI_SPEED
+        self.spi.mode = SPI_MODE
+
+        self.chip = gpiod.Chip('gpiochip0')
+        self.line = self.chip.get_line(self.CS_PIN)
+        )
 
     def initialize_spi(self):
         """[TODO:description]"""
