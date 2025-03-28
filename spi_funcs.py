@@ -12,7 +12,7 @@ class SPIUninitializedError(Exception):
 
 class SPI_DEVICE:
 
-    def __init__(self, DEVICE_CS_PIN, SPI_BUS=0, SPI_MODE=0b00) -> None:
+    def __init__(self, DEVICE_CS_PIN, SPI_BUS=0, SPI_MODE=0b00, SPI_SPEED=__SPI_BUS_SPEED__) -> None:
         """Constructor for an SPI device
 
         Parameters
@@ -30,6 +30,7 @@ class SPI_DEVICE:
         self.SPI_MODE = SPI_MODE
         self.intialized = False
         self.spi = None
+        self.spi_bus_speed = SPI_SPEED
 
     def initialize_spi(self):
         """[TODO:description]"""
@@ -42,12 +43,12 @@ class SPI_DEVICE:
         # Setup SPI
         self.spi = spidev.SpiDev()
         self.spi.open(self.SPI_BUS, 0)
-        self.spi.max_speed_hz = __SPI_BUS_SPEED__
+        self.spi.max_speed_hz = self.spi_bus_speed
         self.spi.mode = self.SPI_MODE
         self.intialized = True
 
 
-    def read_regiser(self, register_addr):
+    def read_register(self, register_addr):
         """[TODO:description]
 
         Parameters
