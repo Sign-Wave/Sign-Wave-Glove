@@ -2,56 +2,68 @@
 2025 SignWave
 """
 import spidev
-import gpiod
+import lgpio as gpio
 import time
 
 __SPI_BUS_SPEED__ = 3_600_000 #Hz (3.6 MHz) constrained by ADC
 
-class SPIUninitializedError(Exception):
-    pass
 
 class SPI_DEVICE:
 
-    def __init__(self, DEVICE_CS_PIN, SPI_BUS=0, SPI_MODE=0b00, SPI_SPEED=__SPI_BUS_SPEED__) -> None:
-        """Constructor for an SPI device
+    def __init__(self, DEVICE_CS_PIN : int, SPI_BUS=0, SPI_DEVICE=0, SPI_MODE=0b00, SPI_SPEED=__SPI_BUS_SPEED__) -> None:
+        """Initialize the SPI device
 
         Parameters
         ----------
-        DEVICE_CS_PIN : Int
-            The GPIO that the device's CS_B pin is connected to.
-        SPI_BUS : [TODO:parameter]
-            [TODO:description]
-        SPI_MODE : [TODO:parameter]
-            [TODO:description]
-
+        DEVICE_CS_PIN : Integer
+            GPIO pin used as chip select
+        SPI_BUS : Integer (0 or 1)
+            SPI bus number
+        SPI_DEVICE : Integer (0 or 1)
+            SPI device
+        SPI_MODE : Binary Number (0b00, 0b01, 0b10, 0b11)
+            Determines the clocking behaviour
+                CPOL (MSB)
+                    Clock polarity
+                CPHA (LSB)
+                    Clock phase
+            0b00 : Data sampled on rising edge and shifted out on the falling edge
+            0b01 : Data sampled on the falling edge and shifted out on the rising edge
+            0b10 : Data sampled on the falling edge and shifted out on the rising edge
+            0b11 : Data sampled on the rising edge and shifted out on the falling edge
+        SPI_SPEED : Hz
+            Clocking speed of the serial interface.
+            Frequency of SCLK
         """
-        self.CS_PIN = DEVICE_CS_PIN
-        self.SPI_BUS=SPI_BUS
-        self.SPI_MODE = SPI_MODE
-        self.spi = spidev.SpiDev()
-        self.spi.open(SPI_BUS, 0)
-        self.spi.max_speed_hz = SPI_SPEED
-        self.spi.mode = SPI_MODE
+        self.cs = DEVICE_CS_PIN
+        self.spi_bus = SPI_BUS
+        self.spi_device = SPI_DEVICE
+        self.interface_freq = SPI_SPEED
+        self.mode = SPI_MODE
 
-        self.chip = gpiod.Chip('gpiochip0')
-        self.line = self.chip.get_line(self.CS_PIN)
-        )
+        self.spi = None
+        self.gpio_chip = None
 
-    def initialize_spi(self):
+        self.__initialize_gpio()
+        self.__initialize_spi()
+
+
+    def __initialize_spi(self):
         """[TODO:description]"""
-        if self.intialized:
-            return
-        #GPIO setup
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setup(self.CS_PIN, GPIO.OUT) # Program GPIO to CS_B
-        GPIO.output(self.CS_PIN, GPIO.HIGH) # Set the GPIO pin to High
-        # Setup SPI
         self.spi = spidev.SpiDev()
-        self.spi.open(self.SPI_BUS, 0)
-        self.spi.max_speed_hz = self.spi_bus_speed
-        self.spi.mode = self.SPI_MODE
-        self.intialized = True
+        self.spi.open(self.spi_bus, self.spi_device)
+        self.spi.mode = self.mode
+        self.spi.max_speed_hz = self.interface_freq
+        self.spi.lsbfirst = False # MSB-first transmission
+        self.spi.cshigh = False # Active low CS
 
+    def __initialize_gpio(self):
+        """
+        Initialize GPIO using `lgpio`.
+        """
+        self.gpio_chip = gpio.gpiochip_open(0)
+        gpio.gpio_claim_output(self.gpio_chip, self.cs) # set CS pin as output
+        gpio.gpio_write(self.gpio_chip, self.cs, 1) # Ensure CS is high
 
     def read_register(self, register_addr):
         """[TODO:description]
@@ -61,30 +73,38 @@ class SPI_DEVICE:
         register_addr : Hexadecimal
             Address of the desired register in hexadecimal
         """
-        if not self.intialized:
-            raise SPIUninitializedError("SPI must be initalized before usage\nCall initalize_spi() before reading!")
         # Pull GPIO down to start read operation
-        GPIO.output(self.CS_PIN, GPIO.LOW)
-        #time.sleep(100e-9)
+        gpio.gpio_write(self.gpio_chip, self.cs, 0) # Activate CS (LOW)
+        time.sleep(1e-3)
 
         address = register_addr | 0x80 # set MSB to 1 (read operation)
         dummy_byte = 0x00
         response = self.spi.xfer2([address, dummy_byte])
 
         # Release Slave (Pull it high)
-        GPIO.output(self.CS_PIN, GPIO.HIGH)
+        time.sleep(1e-3)
+        gpio.gpio_write(self.gpio_chip, self.cs, 1) # Deactivate CS (HIGH)
 
         return response
 
     def write_register(self, register_addr, value):
-        GPIO.output(self.CS_PIN, GPIO.LOW)  # Select IMU (CS LOW)
-        #time.sleep(0.001)  # Short delay
+        gpio.gpio_write(self.gpio_chip, self.cs, 0) # Activate CS (LOW)
+        time.sleep(1e-3)
 
         address = register_addr & 0x7F
         self.spi.xfer2([address, value])  # Send address & data
 
-        GPIO.output(self.CS_PIN, GPIO.HIGH)  # Deselect IMU (CS HIGH)
+        time.sleep(1e-3)
+        gpio.gpio_write(self.gpio_chip, self.cs, 1) # Deactivate CS (HIGH)
 
-    def clean_up(self):
-        GPIO.cleanup()
-        self.spi.close()
+    def close(self):
+        if self.spi:
+            self.spi.close()
+        if self.gpio_chip:
+            gpio.gpiochip_close(self.gpio_chip)
+
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()

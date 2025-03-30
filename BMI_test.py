@@ -8,15 +8,11 @@ CHIP_ID_REG = 0x00  # Register address for CHIP_ID
 
 
 def main():
-    bmi323 = SPI_DEVICE(BMI323_CS, SPI_BUS=SPI_BUS, SPI_SPEED=1_000_000)
-    bmi323.initialize_spi()
-    time.sleep(0.1)
-    response = bmi323.read_register(CHIP_ID_REG)
-    chip_id = response[1]
+    with SPI_DEVICE(DEVICE_CS_PIN=BMI323_CS, SPI_BUS=SPI_BUS) as spi:
+        response = spi.read_register(register_addr=CHIP_ID_REG)
+        print(response)
+        #print(f"CHIP_ID: 0x{chip_id:02X}")
 
-    print(f"CHIP_ID: 0x{chip_id:02X}")
-
-    bmi323.clean_up()
 
 if __name__ == "__main__":
     main()
