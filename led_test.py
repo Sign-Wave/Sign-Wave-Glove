@@ -1,10 +1,16 @@
+from led import led
 
-import time
+RED_PIN = 23
+GREEN_PIN = 24
 
-# Pin configuration
-LED_PIN = 18  # Change this to the GPIO pin your LED is connected to
-CHIP_NAME = "gpiochip0"  # Default GPIO chip name
+green_led = led(GREEN_PIN)
+red_led = led(RED_PIN)
 
-# Initialize GPIO chip and line
+if __name__ == '__main__':
+    print(__name__)
+    for i in range(10):
+        green_led.turn_on(1)
+        red_led.turn_on(1)
 
-
+    green_led.cleanup()
+    red_led.cleanup()

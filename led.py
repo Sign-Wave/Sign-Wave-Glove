@@ -29,3 +29,6 @@ class led:
 
     def turn_off(self):
         gpio.gpio_write(self.gpio_chip, self.gpio_pin, 0)
+
+    def cleanup(self):
+        gpio.gpiochip_close(self.gpio_chip)
