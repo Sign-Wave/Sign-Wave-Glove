@@ -4,11 +4,10 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 import time
 import threading
-from BMI_test import initialize_spi
 from spi_funcs import SPI_DEVICE
 import registers as reg
 
-THUMB_IMU_CS = 8 # CS_B for Thumb IMU is GPIO8 (CE0) or pin 24
+"""THUMB_IMU_CS = 8 # CS_B for Thumb IMU is GPIO8 (CE0) or pin 24
 THUMB_IMU = SPI_DEVICE(THUMB_IMU_CS, 0)
 INDEX_IMU_CS = 7 # CS_B for index IMU is GPIO7 (CE1) or Pin 26 
 INDEX_IMU = SPI_DEVICE(INDEX_IMU_CS, 0)
@@ -20,7 +19,7 @@ PINKY_IMU_CS = 22 # CS_B for index IMU is GPIO22 or Pin 15
 PINKY_IMU = SPI_DEVICE(PINKY_IMU_CS, 0)
 
 ADC_CS = 23 # CS_B for index IMU is GPIO23 or Pin 16
-ADC = SPI_DEVICE(ADC_CS, 0)
+ADC = SPI_DEVICE(ADC_CS, 0)"""
 
 class App(tk.Tk):
     def __init__(self):
@@ -128,6 +127,7 @@ class LetterScreen(tk.Frame):
             "PINKY_GYR_Z":[],
             "PINKY_ACC_Z":[],
         }
+        time.sleep(5)
         for i in range(0, 20):
             # TODO implement sensor reading
             pass
@@ -164,24 +164,7 @@ def gui():
     app.protocol("WM_DELETE_WINDOW", on_closing)
     app.mainloop()
 
-def initialize_all():
-    THUMB_IMU.initialize_spi()
-    INDEX_IMU.initialize_spi() 
-    MIDDLE_IMU.initialize_spi() 
-    RING_IMU.initialize_spi() 
-    PINKY_IMU.initialize_spi() 
-    ADC.initialize_spi() 
-
-def close_all():
-    THUMB_IMU.clean_up()
-    INDEX_IMU.clean_up() 
-    MIDDLE_IMU.clean_up() 
-    RING_IMU.clean_up() 
-    PINKY_IMU.clean_up() 
-    ADC.clean_up() 
-
 if __name__ == '__main__':
     gui_thread = threading.Thread(target=gui, name='gui thread')
     gui_thread.start()
-    initialize_all()
 
