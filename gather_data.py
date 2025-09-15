@@ -4,23 +4,35 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 import time
 import threading
-from BMI_test import initialize_spi
-from spi_funcs import SPI_DEVICE
+from scipy import signal
+from i2c_funcs import I2C_SLAVE
+from smbus2 import SMBus 
 import registers as reg
 
-THUMB_IMU_CS = 8 # CS_B for Thumb IMU is GPIO8 (CE0) or pin 24
-THUMB_IMU = SPI_DEVICE(THUMB_IMU_CS, 0)
-INDEX_IMU_CS = 7 # CS_B for index IMU is GPIO7 (CE1) or Pin 26 
-INDEX_IMU = SPI_DEVICE(INDEX_IMU_CS, 0)
-MIDDLE_IMU_CS = 17 # CS_B for MIDDLE IMU is GPIO17 or Pin 11
-MIDDLE_IMU = SPI_DEVICE(MIDDLE_IMU_CS, 0)
-RING_IMU_CS = 27 # CS_B for index IMU is GPIO27 or Pin 13
-RING_IMU = SPI_DEVICE(RING_IMU_CS, 0)
-PINKY_IMU_CS = 22 # CS_B for index IMU is GPIO22 or Pin 15
-PINKY_IMU = SPI_DEVICE(PINKY_IMU_CS, 0)
+BACK_OF_HAND_IMU_BASE_ADDR = 0x69
 
-ADC_CS = 23 # CS_B for index IMU is GPIO23 or Pin 16
-ADC = SPI_DEVICE(ADC_CS, 0)
+PWR_MGMT_1 = 0x6B
+IMU_GYR_X = 0x43
+IMU_ACC_X = 0x3B
+
+IMU_GYR_Y = 0x45
+IMU_ACC_Y = 0x3D
+
+IMU_GYR_Z = 0x47
+IMU_ACC_Z = 0x3F
+
+BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
+bus = None
+# ---- Design filter once ----
+fs = 100.0     # Hz (your sampling rate)
+cutoff = 5.0   # Hz (example cutoff)
+order = 6
+
+TARGET_LETTER = 'A'
+
+sos = signal.butter(order, cutoff, btype='low', fs=fs, output='sos')
+zi = signal.sosfilt_zi(sos)
+
 
 class App(tk.Tk):
     def __init__(self):
@@ -37,7 +49,7 @@ class App(tk.Tk):
             frame = F(self.container, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky='nsew')
-        
+
         self.show_frame(MainScreen)
 
     def show_frame(self, frame_name, image_path=None, letter=None):
@@ -70,7 +82,7 @@ class LetterScreen(tk.Frame):
         self.img_label = tk.Label(self)
         self.img_label.pack(pady=10)
 
-        self.record_button = ttk.Button(self, text="Record sensors when in position", command=lambda: self.record_sensors())
+        self.record_button = ttk.Button(self, text="Record sensors when in position", command=lambda: self.record_sensors(self.get_letter(letter)))
         self.record_button.pack(pady=10)
 
         self.back_button = ttk.Button(self, text="Back", command=lambda: controller.show_frame(MainScreen))
@@ -86,62 +98,155 @@ class LetterScreen(tk.Frame):
         self.back_button.config(state=tk.NORMAL)
         print("Done disable_buttons")
 
-    def read_sensors(self):
+    def read_sensors(self, alpha = 0.5, target_val='A'):
+
+        global zi
+        
+        thumb_flex_vals       = 0
+        index_flex_vals       = 0
+        middle_flex_vals      = 0
+        ring_flex_vals        = 0
+        pinky_flex_vals       = 0
+        gyr_x_vals            = 0
+        gyr_y_vals            = 0
+        gyr_z_vals            = 0
+        acc_x_vals            = 0
+        acc_y_vals            = 0
+        acc_z_vals            = 0
+        ouput_thumb_flex_vals  = 0
+        ouput_index_flex_vals  = 0
+        ouput_middle_flex_vals = 0
+        ouput_ring_flex_vals   = 0
+        ouput_pinky_flex_vals  = 0
+        ouput_gyr_x_vals       = 0
+        ouput_gyr_y_vals       = 0
+        ouput_gyr_z_vals       = 0
+        ouput_acc_x_vals       = 0
+        ouput_acc_y_vals       = 0
+        ouput_acc_z_vals       = 0
+
         sensor_dict = {
+            "THUMB_FLEX":0,
+
+            "INDEX_FLEX":0,
+
+            "MIDDLE_FLEX":0,
+
+            "RING_FLEX":0,
+
+            "PINKY_FLEX":0,
+
+            "BACK_OF_HAND_GYR_X":0,
+            "BACK_OF_HAND_ACC_X":0,
+            "BACK_OF_HAND_GYR_Y":0,
+            "BACK_OF_HAND_ACC_Y":0,
+            "BACK_OF_HAND_GYR_Z":0,
+            "BACK_OF_HAND_ACC_Z":0,
+            "SIGN":target_val
+        }
+        temp_sensor_dict = {
             "THUMB_FLEX":[],
-            "THUMB_GYR_X":[],
-            "THUMB_ACC_X":[],
-            "THUMB_GYR_Y":[],
-            "THUMB_ACC_Y":[],
-            "THUMB_GYR_Z":[],
-            "THUMB_ACC_Z":[],
 
             "INDEX_FLEX":[],
-            "INDEX_GYR_X":[],
-            "INDEX_ACC_X":[],
-            "INDEX_GYR_Y":[],
-            "INDEX_ACC_Y":[],
-            "INDEX_GYR_Z":[],
-            "INDEX_ACC_Z":[],
 
             "MIDDLE_FLEX":[],
-            "MIDDLE_GYR_X":[],
-            "MIDDLE_ACC_X":[],
-            "MIDDLE_GYR_Y":[],
-            "MIDDLE_ACC_Y":[],
-            "MIDDLE_GYR_Z":[],
-            "MIDDLE_ACC_Z":[],
 
             "RING_FLEX":[],
-            "RING_GYR_X":[],
-            "RING_ACC_X":[],
-            "RING_GYR_Y":[],
-            "RING_ACC_Y":[],
-            "RING_GYR_Z":[],
-            "RING_ACC_Z":[],
 
             "PINKY_FLEX":[],
-            "PINKY_GYR_X":[],
-            "PINKY_ACC_X":[],
-            "PINKY_GYR_Y":[],
-            "PINKY_ACC_Y":[],
-            "PINKY_GYR_Z":[],
-            "PINKY_ACC_Z":[],
+
+            "BACK_OF_HAND_GYR_X":[],
+            "BACK_OF_HAND_ACC_X":[],
+            "BACK_OF_HAND_GYR_Y":[],
+            "BACK_OF_HAND_ACC_Y":[],
+            "BACK_OF_HAND_GYR_Z":[],
+            "BACK_OF_HAND_ACC_Z":[],
         }
         for i in range(0, 20):
-            # TODO implement sensor reading
-            pass
+            thumb_flex_val = read_flex_sensor(0)
+            index_flex_val = read_flex_sensor(1)
+            middle_flex_val=  read_flex_sensor(2)
+            ring_flex_val  =  read_flex_sensor(3)
+            pinky_flex_val =  read_flex_sensor(4)
+            gyr_x_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
+            gyr_y_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
+            gyr_z_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
+            acc_x_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_X)
+            acc_y_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y)
+            acc_z_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z)
 
+            output_thumb_flex_val, zi_out = signal.sosfilt(sos, [thumb_flex_val], zi=zi)
+            output_index_flex_val, zi_out = signal.sosfilt(sos, [index_flex_val], zi=zi)
+            output_middle_flex_val, zi_out = signal.sosfilt(sos, [middle_flex_val], zi=zi)
+            output_ring_flex_val, zi_out = signal.sosfilt(sos, [ring_flex_val], zi=zi)
+            output_pinky_flex_val, zi_out = signal.sosfilt(sos, [pinky_flex_val], zi=zi)
+            output_gyr_x_val, zi_out = signal.sosfilt(sos, [gyr_x_val], zi=zi)
+            output_gyr_y_val, zi_out = signal.sosfilt(sos, [gyr_y_val], zi=zi)
+            output_gyr_z_val, zi_out = signal.sosfilt(sos, [gyr_z_val], zi=zi)
+            output_acc_x_val, zi_out = signal.sosfilt(sos, [acc_x_val], zi=zi)
+            output_acc_y_val, zi_out = signal.sosfilt(sos, [acc_y_val], zi=zi)
+            output_acc_z_val, zi_out = signal.sosfilt(sos, [acc_z_val], zi=zi)
+
+            temp_sensor_dict["THUMB_FLEX"].append(output_thumb_flex_val)
+            temp_sensor_dict["INDEX_FLEX"].append(output_index_flex_val)
+            temp_sensor_dict["MIDDLE_FLEX"].append(output_middle_flex_val)
+            temp_sensor_dict["RING_FLEX"].append(output_ring_flex_val)
+            temp_sensor_dict["PINKY_FLEX"].append(output_pinky_flex_val)
+            temp_sensor_dict["BACK_OF_HAND_GYR_X"].append(output_gyr_x_val)
+            temp_sensor_dict["BACK_OF_HAND_GYR_Y"].append(output_gyr_y_val)
+            temp_sensor_dict["BACK_OF_HAND_GYR_Z"].append(output_gyr_z_val)
+            temp_sensor_dict["BACK_OF_HAND_ACC_X"].append(output_acc_x_val)
+            temp_sensor_dict["BACK_OF_HAND_ACC_Y"].append(output_acc_y_val)
+            temp_sensor_dict["BACK_OF_HAND_ACC_Z"].append(output_acc_z_val)
+
+        # Average the sensor readings
+        for keys, values in temp_sensor_dict.items():
+            sensor_dict[keys] = sum(values)/len(values)
+            
         return sensor_dict
 
+    def save_sensor_readings(sensor_dict : Dict, filename):
+        file_exists = os.path.isfile(filename)
+
+        # Transpose dict of arrays into list of row dicts
+        rows = [dict(zip(sensor_dict.keys(), values)) for values in zip(*sensor_dict.values())]
+
+        with open(filename, mode="a", newline="") as file:
+            writer = csv.DictWriter(file, fieldnames=sensor_dict.keys())
+
+            # Write header if file doesn't exist
+            if not file_exists:
+                writer.writeheader()
+
+            # Write all rows
+            writer.writerows(rows)
+
+
+    def read_flex_sensor(self, channel):
+        """Read ADC value from MCP3008"""
+        adc = spi.xfer2([1, (8 + channel) << 4, 0])
+        return ((adc[1] & 3) << 8) + adc[2]
 
     def update_letter(self, letter):
+        global TARGET_LETTER
+        TARGET_LETTER = letter
         self.label.config(text=f"{letter}", font=("Arial", 16))
-        
-    def record_sensors(self):
+
+    def get_letter(self):
+        global TARGET_LETTER
+        return TARGET_LETTER
+
+    def record_sensors(self, letter):
         self.disable_buttons()
-        self.read_sensors()
+        sensors_dict = self.read_sensors(letter)
+        self.save_sensor_readings(sensor_dict)
         self.enable_buttons()
+
+    def initialize_all():
+        if is_raspberry_pi:
+            spi.open(0, 0)
+            spi.max_speed_hz = 1350000
+        BACK_OF_HAND_IMU_BASE_ADDR.write_register(PWR_MGMT_1, 0)
 
 
     def update_image(self, image_path):
@@ -155,6 +260,10 @@ class LetterScreen(tk.Frame):
         except Exception as e:
             print(f"Error loading image: {e}")
 
+    def close_all(self):
+        spi.close()
+        sys.exit(0)
+
 def gui():
     def on_closing():
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -164,23 +273,10 @@ def gui():
     app.protocol("WM_DELETE_WINDOW", on_closing)
     app.mainloop()
 
-def initialize_all():
-    THUMB_IMU.initialize_spi()
-    INDEX_IMU.initialize_spi() 
-    MIDDLE_IMU.initialize_spi() 
-    RING_IMU.initialize_spi() 
-    PINKY_IMU.initialize_spi() 
-    ADC.initialize_spi() 
-
-def close_all():
-    THUMB_IMU.clean_up()
-    INDEX_IMU.clean_up() 
-    MIDDLE_IMU.clean_up() 
-    RING_IMU.clean_up() 
-    PINKY_IMU.clean_up() 
-    ADC.clean_up() 
 
 if __name__ == '__main__':
+    bus = SMBus(1)
+    spi = spidev.SpiDev() if is_raspberry_pi else spidev
     gui_thread = threading.Thread(target=gui, name='gui thread')
     gui_thread.start()
     initialize_all()
