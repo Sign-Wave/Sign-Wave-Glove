@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from PIL import Image, ImageTk
+import sys
 import time
 import threading
 from scipy import signal
@@ -21,10 +22,10 @@ IMU_ACC_Y = 0x3D
 IMU_GYR_Z = 0x47
 IMU_ACC_Z = 0x3F
 
-BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
+#BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
 bus = None
 # ---- Design filter once ----
-fs = 100.0     # Hz (your sampling rate)
+fs = 130000    # Hz (your sampling rate)
 cutoff = 5.0   # Hz (example cutoff)
 order = 6
 
@@ -61,6 +62,8 @@ class App(tk.Tk):
 
 class MainScreen(tk.Frame):
     def on_button_click(self, letter, controller):
+        global TARGET_LETTER
+        TARGET_LETTER = letter
         controller.show_frame(LetterScreen, f"Sign-language-pics/{letter}.png", letter)
 
     def __init__(self, parent, controller):
@@ -82,7 +85,7 @@ class LetterScreen(tk.Frame):
         self.img_label = tk.Label(self)
         self.img_label.pack(pady=10)
 
-        self.record_button = ttk.Button(self, text="Record sensors when in position", command=lambda: self.record_sensors(self.get_letter(letter)))
+        self.record_button = ttk.Button(self, text="Record sensors when in position", command=lambda: self.record_sensors())
         self.record_button.pack(pady=10)
 
         self.back_button = ttk.Button(self, text="Back", command=lambda: controller.show_frame(MainScreen))
@@ -98,9 +101,10 @@ class LetterScreen(tk.Frame):
         self.back_button.config(state=tk.NORMAL)
         print("Done disable_buttons")
 
-    def read_sensors(self, alpha = 0.5, target_val='A'):
+    def read_sensors(self, alpha = 0.5):
 
         global zi
+        global TARGET_LETTER
         
         thumb_flex_vals       = 0
         index_flex_vals       = 0
@@ -142,7 +146,7 @@ class LetterScreen(tk.Frame):
             "BACK_OF_HAND_ACC_Y":0,
             "BACK_OF_HAND_GYR_Z":0,
             "BACK_OF_HAND_ACC_Z":0,
-            "SIGN":target_val
+            "SIGN": TARGET_LETTER
         }
         temp_sensor_dict = {
             "THUMB_FLEX":[],
@@ -205,7 +209,7 @@ class LetterScreen(tk.Frame):
             
         return sensor_dict
 
-    def save_sensor_readings(sensor_dict : Dict, filename):
+    def save_sensor_readings(sensor_dict, filename):
         file_exists = os.path.isfile(filename)
 
         # Transpose dict of arrays into list of row dicts
@@ -236,9 +240,9 @@ class LetterScreen(tk.Frame):
         global TARGET_LETTER
         return TARGET_LETTER
 
-    def record_sensors(self, letter):
+    def record_sensors(self):
         self.disable_buttons()
-        sensors_dict = self.read_sensors(letter)
+        sensors_dict = self.read_sensors()
         self.save_sensor_readings(sensor_dict)
         self.enable_buttons()
 
@@ -260,9 +264,9 @@ class LetterScreen(tk.Frame):
         except Exception as e:
             print(f"Error loading image: {e}")
 
-    def close_all(self):
-        spi.close()
-        sys.exit(0)
+def close_all():
+    spi.close()
+    sys.exit(0)
 
 def gui():
     def on_closing():
