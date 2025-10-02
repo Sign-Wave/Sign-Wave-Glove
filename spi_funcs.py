@@ -5,7 +5,7 @@ import spidev
 import lgpio as gpio
 import time
 
-__SPI_BUS_SPEED__ = 3_600_000 #Hz (3.6 MHz) constrained by ADC
+__SPI_BUS_SPEED__ = 1 #3_600_000 #Hz (3.6 MHz) constrained by ADC
 
 
 class SPI_DEVICE:

@@ -8,9 +8,13 @@ import threading
 from scipy import signal
 from i2c_funcs import I2C_SLAVE
 from smbus2 import SMBus 
+import spidev
+import os
+import csv
+
 import registers as reg
 
-BACK_OF_HAND_IMU_BASE_ADDR = 0x69
+BACK_OF_HAND_IMU_BASE_ADDR = 0x68
 
 PWR_MGMT_1 = 0x6B
 IMU_GYR_X = 0x43
@@ -22,7 +26,7 @@ IMU_ACC_Y = 0x3D
 IMU_GYR_Z = 0x47
 IMU_ACC_Z = 0x3F
 
-#BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
+BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
 bus = None
 # ---- Design filter once ----
 fs = 130000    # Hz (your sampling rate)
@@ -167,11 +171,11 @@ class LetterScreen(tk.Frame):
             "BACK_OF_HAND_ACC_Z":[],
         }
         for i in range(0, 20):
-            thumb_flex_val = read_flex_sensor(0)
-            index_flex_val = read_flex_sensor(1)
-            middle_flex_val=  read_flex_sensor(2)
-            ring_flex_val  =  read_flex_sensor(3)
-            pinky_flex_val =  read_flex_sensor(4)
+            thumb_flex_val = self.read_flex_sensor(0)
+            index_flex_val = self.read_flex_sensor(1)
+            middle_flex_val= self.read_flex_sensor(2)
+            ring_flex_val  = self.read_flex_sensor(3)
+            pinky_flex_val = self.read_flex_sensor(4)
             gyr_x_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
             gyr_y_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
             gyr_z_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
@@ -209,7 +213,7 @@ class LetterScreen(tk.Frame):
             
         return sensor_dict
 
-    def save_sensor_readings(sensor_dict, filename):
+    def save_sensor_readings(self, sensor_dict, filename):
         file_exists = os.path.isfile(filename)
 
         # Transpose dict of arrays into list of row dicts
@@ -227,8 +231,13 @@ class LetterScreen(tk.Frame):
 
 
     def read_flex_sensor(self, channel):
-        """Read ADC value from MCP3008"""
-        adc = spi.xfer2([1, (8 + channel) << 4, 0])
+        """
+        Read a single-ended channel (0..7) from MCP3008.
+        Returns an integer 0..1023 (10-bit).
+        """
+        if not (0 <= channel <= 7):
+            raise ValueError(f"Channel must be in the range of 0 to 7, was {channel}")
+        adc = spi.xfer2([1, 0x80|(channel<<4), 0])
         return ((adc[1] & 3) << 8) + adc[2]
 
     def update_letter(self, letter):
@@ -243,14 +252,12 @@ class LetterScreen(tk.Frame):
     def record_sensors(self):
         self.disable_buttons()
         sensors_dict = self.read_sensors()
-        self.save_sensor_readings(sensor_dict)
+        print("done training")
+        print("sensors dict: ")
+        print(sensors_dict)
+        self.save_sensor_readings(sensors_dict, "training_data1.csv")
         self.enable_buttons()
 
-    def initialize_all():
-        if is_raspberry_pi:
-            spi.open(0, 0)
-            spi.max_speed_hz = 1350000
-        BACK_OF_HAND_IMU_BASE_ADDR.write_register(PWR_MGMT_1, 0)
 
 
     def update_image(self, image_path):
@@ -268,6 +275,12 @@ def close_all():
     spi.close()
     sys.exit(0)
 
+def initialize_all():
+    print("opening spi")
+    spi.open(0, 0)
+    spi.max_speed_hz = 1350000
+    BACK_OF_HAND_IMU.write_register(PWR_MGMT_1, 0)
+
 def gui():
     def on_closing():
         if messagebox.askokcancel("Quit", "Do you want to quit?"):
@@ -280,8 +293,9 @@ def gui():
 
 if __name__ == '__main__':
     bus = SMBus(1)
-    spi = spidev.SpiDev() if is_raspberry_pi else spidev
+    spi = spidev.SpiDev()
     gui_thread = threading.Thread(target=gui, name='gui thread')
     gui_thread.start()
+    print("initializing")
     initialize_all()
 
