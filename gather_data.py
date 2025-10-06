@@ -35,8 +35,8 @@ order = 6
 
 TARGET_LETTER = 'A'
 
-sos = signal.butter(order, cutoff, btype='low', fs=fs, output='sos')
-zi = signal.sosfilt_zi(sos)
+#sos = signal.butter(order, cutoff, btype='low', fs=fs, output='sos')
+#zi = signal.sosfilt_zi(sos)
 
 
 class App(tk.Tk):
@@ -105,7 +105,7 @@ class LetterScreen(tk.Frame):
         self.back_button.config(state=tk.NORMAL)
         print("Done disable_buttons")
 
-    def read_sensors(self, alpha = 0.5):
+    def read_sensors(self, alpha = 0.75, sampling_rate=500, raw_data=0):
 
         global zi
         global TARGET_LETTER
@@ -169,31 +169,32 @@ class LetterScreen(tk.Frame):
             "BACK_OF_HAND_ACC_Y":[],
             "BACK_OF_HAND_GYR_Z":[],
             "BACK_OF_HAND_ACC_Z":[],
+            "SIGN": TARGET_LETTER
         }
         for i in range(0, 20):
-            thumb_flex_val = self.read_flex_sensor(0)
-            index_flex_val = self.read_flex_sensor(1)
-            middle_flex_val= self.read_flex_sensor(2)
-            ring_flex_val  = self.read_flex_sensor(3)
-            pinky_flex_val = self.read_flex_sensor(4)
-            gyr_x_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
-            gyr_y_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
-            gyr_z_val      = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
-            acc_x_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_X)
-            acc_y_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y)
-            acc_z_val      = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z)
+            thumb_flex_val         = self.read_flex_sensor(0)
+            index_flex_val         = self.read_flex_sensor(1)
+            middle_flex_val        = self.read_flex_sensor(2)
+            ring_flex_val          = self.read_flex_sensor(3)
+            pinky_flex_val         = self.read_flex_sensor(4)
+            gyr_x_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
+            gyr_y_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
+            gyr_z_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
+            acc_x_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_X)
+            acc_y_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y)
+            acc_z_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z)
 
-            output_thumb_flex_val, zi_out = signal.sosfilt(sos, [thumb_flex_val], zi=zi)
-            output_index_flex_val, zi_out = signal.sosfilt(sos, [index_flex_val], zi=zi)
-            output_middle_flex_val, zi_out = signal.sosfilt(sos, [middle_flex_val], zi=zi)
-            output_ring_flex_val, zi_out = signal.sosfilt(sos, [ring_flex_val], zi=zi)
-            output_pinky_flex_val, zi_out = signal.sosfilt(sos, [pinky_flex_val], zi=zi)
-            output_gyr_x_val, zi_out = signal.sosfilt(sos, [gyr_x_val], zi=zi)
-            output_gyr_y_val, zi_out = signal.sosfilt(sos, [gyr_y_val], zi=zi)
-            output_gyr_z_val, zi_out = signal.sosfilt(sos, [gyr_z_val], zi=zi)
-            output_acc_x_val, zi_out = signal.sosfilt(sos, [acc_x_val], zi=zi)
-            output_acc_y_val, zi_out = signal.sosfilt(sos, [acc_y_val], zi=zi)
-            output_acc_z_val, zi_out = signal.sosfilt(sos, [acc_z_val], zi=zi)
+            output_thumb_flex_val  = thumb_flex_val  if raw_data else alpha*thumb_flex_val+(1-alpha)*output_thumb_flex_val
+            output_index_flex_val  = index_flex_val  if raw_data else alpha*index_flex_val+(1-alpha)*output_index_flex_val
+            output_middle_flex_val = middle_flex_val if raw_data else alpha*middle_flex_val+(1-alpha)*output_middle_flex_val
+            output_ring_flex_val   = ring_flex_val   if raw_data else alpha*ring_flex_val+(1-alpha)*output_ring_flex_val
+            output_pinky_flex_val  = pinky_flex_val  if raw_data else alpha*pinky_flex_val+(1-alpha)*output_pinky_flex_val
+            output_gyr_x_val       = gyr_x_val       if raw_data else alpha*gyr_x_val+(1-alpha)*output_gyr_x_val
+            output_gyr_y_val       = gyr_y_val       if raw_data else alpha*gyr_y_val+(1-alpha)*output_gyr_y_val
+            output_gyr_z_val       = gyr_z_val       if raw_data else alpha*gyr_z_val+(1-alpha)*output_gyr_z_val
+            output_acc_x_val       = acc_x_val       if raw_data else alpha*acc_x_val+(1-alpha)*output_acc_x_val
+            output_acc_y_val       = acc_y_val       if raw_data else alpha*acc_y_val+(1-alpha)*output_acc_y_val
+            output_acc_z_val       = acc_z_val       if raw_data else alpha*acc_z_val+(1-alpha)*output_acc_z_val
 
             temp_sensor_dict["THUMB_FLEX"].append(output_thumb_flex_val)
             temp_sensor_dict["INDEX_FLEX"].append(output_index_flex_val)
@@ -206,12 +207,17 @@ class LetterScreen(tk.Frame):
             temp_sensor_dict["BACK_OF_HAND_ACC_X"].append(output_acc_x_val)
             temp_sensor_dict["BACK_OF_HAND_ACC_Y"].append(output_acc_y_val)
             temp_sensor_dict["BACK_OF_HAND_ACC_Z"].append(output_acc_z_val)
+            time.sleep(1/sampling_rate)
 
         # Average the sensor readings
-        for keys, values in temp_sensor_dict.items():
-            sensor_dict[keys] = sum(values)/len(values)
-            
-        return sensor_dict
+        if raw_data:
+            return temp_sensor_dict
+        else:
+            for keys, values in temp_sensor_dict.items():
+                if keys == "SIGN":
+                    continue
+                sensor_dict[keys] = sum(values)/len(values)
+            return sensor_dict
 
     def save_sensor_readings(self, sensor_dict, filename):
         file_exists = os.path.isfile(filename)
@@ -251,7 +257,7 @@ class LetterScreen(tk.Frame):
 
     def record_sensors(self):
         self.disable_buttons()
-        sensors_dict = self.read_sensors()
+        sensors_dict = self.read_sensors(alpha=0.75, sampling_rate=500, raw_data=0)
         print("done training")
         print("sensors dict: ")
         print(sensors_dict)
