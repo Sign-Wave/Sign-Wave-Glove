@@ -11,6 +11,7 @@ from smbus2 import SMBus
 import spidev
 import os
 import csv
+import pandas as pd
 
 import registers as reg
 
@@ -110,28 +111,28 @@ class LetterScreen(tk.Frame):
         global zi
         global TARGET_LETTER
         
-        thumb_flex_vals       = 0
-        index_flex_vals       = 0
-        middle_flex_vals      = 0
-        ring_flex_vals        = 0
-        pinky_flex_vals       = 0
-        gyr_x_vals            = 0
-        gyr_y_vals            = 0
-        gyr_z_vals            = 0
-        acc_x_vals            = 0
-        acc_y_vals            = 0
-        acc_z_vals            = 0
-        ouput_thumb_flex_vals  = 0
-        ouput_index_flex_vals  = 0
-        ouput_middle_flex_vals = 0
-        ouput_ring_flex_vals   = 0
-        ouput_pinky_flex_vals  = 0
-        ouput_gyr_x_vals       = 0
-        ouput_gyr_y_vals       = 0
-        ouput_gyr_z_vals       = 0
-        ouput_acc_x_vals       = 0
-        ouput_acc_y_vals       = 0
-        ouput_acc_z_vals       = 0
+        thumb_flex_val       = 0
+        index_flex_val       = 0
+        middle_flex_val      = 0
+        ring_flex_val        = 0
+        pinky_flex_val       = 0
+        gyr_x_val            = 0
+        gyr_y_val            = 0
+        gyr_z_val            = 0
+        acc_x_val            = 0
+        acc_y_val            = 0
+        acc_z_val            = 0
+        output_thumb_flex_val  = 0
+        output_index_flex_val  = 0
+        output_middle_flex_val = 0
+        output_ring_flex_val   = 0
+        output_pinky_flex_val  = 0
+        output_gyr_x_val       = 0
+        output_gyr_y_val       = 0
+        output_gyr_z_val       = 0
+        output_acc_x_val       = 0
+        output_acc_y_val       = 0
+        output_acc_z_val       = 0
 
         sensor_dict = {
             "THUMB_FLEX":0,
@@ -172,11 +173,11 @@ class LetterScreen(tk.Frame):
             "SIGN": TARGET_LETTER
         }
         for i in range(0, 20):
-            thumb_flex_val         = self.read_flex_sensor(0)
-            index_flex_val         = self.read_flex_sensor(1)
-            middle_flex_val        = self.read_flex_sensor(2)
+            thumb_flex_val         = self.read_flex_sensor(4)
+            index_flex_val         = self.read_flex_sensor(0)
+            middle_flex_val        = self.read_flex_sensor(1)
             ring_flex_val          = self.read_flex_sensor(3)
-            pinky_flex_val         = self.read_flex_sensor(4)
+            pinky_flex_val         = self.read_flex_sensor(2)
             gyr_x_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
             gyr_y_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
             gyr_z_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
@@ -220,20 +221,14 @@ class LetterScreen(tk.Frame):
             return sensor_dict
 
     def save_sensor_readings(self, sensor_dict, filename):
-        file_exists = os.path.isfile(filename)
 
-        # Transpose dict of arrays into list of row dicts
-        rows = [dict(zip(sensor_dict.keys(), values)) for values in zip(*sensor_dict.values())]
+        df = pd.DataFrame([sensor_dict])
 
-        with open(filename, mode="a", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=sensor_dict.keys())
+        if os.path.exists(filename):
+            df.to_csv(filename, mode="a", header=False, index=False) 
+        else:
+            df.to_csv(filename, mode="w", header=True, index=False) 
 
-            # Write header if file doesn't exist
-            if not file_exists:
-                writer.writeheader()
-
-            # Write all rows
-            writer.writerows(rows)
 
 
     def read_flex_sensor(self, channel):
