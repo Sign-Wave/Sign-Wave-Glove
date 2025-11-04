@@ -12,8 +12,7 @@ import sys
 SPI_BUS = 0
 SPI_DEV = 0
 SPI_MAX_HZ = 1_000_000
-FLEX_CHANNELS = [0, 1, 2, 3]  # connected flex sensors
-FLEX5_CHANNEL = 4             # placeholder for 5th
+FLEX_CHANNELS = [0, 1, 2, 3, 4]  # connected flex sensors
 
 # I2C / MPU-6050
 MPU6050_ADDR = 0x68
@@ -132,11 +131,9 @@ def main():
 
             # Flex
             flex_vals = [read_mcp3008_single(spi, ch) for ch in FLEX_CHANNELS]
-            flex5 = None  # placeholder
 
             # Print
             flex_strs = [f"{val:4d}" for val in flex_vals]
-            flex_strs.append(" N/A" if flex5 is None else f"{flex5:4d}")
             print(" {:+6.2f}  {:+6.2f}  | ".format(roll, pitch) + "  ".join(flex_strs))
 
             # pacing

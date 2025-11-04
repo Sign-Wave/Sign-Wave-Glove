@@ -1,4 +1,5 @@
 import tkinter as tk
+import math
 from tkinter import ttk
 from tkinter import messagebox
 from PIL import Image, ImageTk
@@ -27,7 +28,7 @@ IMU_ACC_Y = 0x3D
 IMU_GYR_Z = 0x47
 IMU_ACC_Z = 0x3F
 
-BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
+#BACK_OF_HAND_IMU = I2C_SLAVE(BACK_OF_HAND_IMU_BASE_ADDR)
 bus = None
 # ---- Design filter once ----
 fs = 130000    # Hz (your sampling rate)
@@ -92,6 +93,9 @@ class LetterScreen(tk.Frame):
 
         self.record_button = ttk.Button(self, text="Record sensors when in position", command=lambda: self.record_sensors())
         self.record_button.pack(pady=10)
+
+        self.calib_button = ttk.Button(self, text="Calibrate Sensors", command=lambda : self.calibrate_IMU(5))
+        self.calib_button.pack(pady=10)
 
         self.back_button = ttk.Button(self, text="Back", command=lambda: controller.show_frame(MainScreen))
         self.back_button.pack(pady=10)
@@ -172,18 +176,19 @@ class LetterScreen(tk.Frame):
             "BACK_OF_HAND_ACC_Z":[],
             "SIGN": TARGET_LETTER
         }
+        """
         for i in range(0, 20):
             thumb_flex_val         = self.read_flex_sensor(4)
             index_flex_val         = self.read_flex_sensor(0)
             middle_flex_val        = self.read_flex_sensor(1)
             ring_flex_val          = self.read_flex_sensor(3)
             pinky_flex_val         = self.read_flex_sensor(2)
-            gyr_x_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_X)
-            gyr_y_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y)
-            gyr_z_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z)
-            acc_x_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_X)
-            acc_y_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y)
-            acc_z_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z)
+            gyr_x_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_X) / GYRO_SF - self.bx
+            gyr_y_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y) / GYRO_SF - self.by
+            gyr_z_val              = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z) / GYRO_SF - self.bz
+            acc_x_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_X) / ACCEL_SF
+            acc_y_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y) / ACCEL_SF
+            acc_z_val              = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z) / ACCEL_SF
 
             output_thumb_flex_val  = thumb_flex_val  if raw_data else alpha*thumb_flex_val+(1-alpha)*output_thumb_flex_val
             output_index_flex_val  = index_flex_val  if raw_data else alpha*index_flex_val+(1-alpha)*output_index_flex_val
@@ -219,6 +224,8 @@ class LetterScreen(tk.Frame):
                     continue
                 sensor_dict[keys] = sum(values)/len(values)
             return sensor_dict
+        """
+        return sensor_dict
 
     def save_sensor_readings(self, sensor_dict, filename):
 
@@ -238,8 +245,9 @@ class LetterScreen(tk.Frame):
         """
         if not (0 <= channel <= 7):
             raise ValueError(f"Channel must be in the range of 0 to 7, was {channel}")
-        adc = spi.xfer2([1, 0x80|(channel<<4), 0])
-        return ((adc[1] & 3) << 8) + adc[2]
+        pass
+        #adc = spi.xfer2([1, 0x80|(channel<<4), 0])
+        #return ((adc[1] & 3) << 8) + adc[2]
 
     def update_letter(self, letter):
         global TARGET_LETTER
@@ -259,6 +267,44 @@ class LetterScreen(tk.Frame):
         self.save_sensor_readings(sensors_dict, "training_data1.csv")
         self.enable_buttons()
 
+    def calibrate_IMU(self, calib_time):
+        self.disable_buttons()
+        print("\nCalibrating... keep the hand steady")
+        #time.sleep(calib_time)
+        ACCEL_XOUT_H = 0x3B
+        GYRO_XOUT_H  = 0x43
+        ACCEL_SF = 16384.0
+        GYRO_SF  = 131.0
+        t_end = time.time() + calib_time
+        gx_sum = gy_sum = gz_sum = 0.0
+        ax_sum = ay_sum = az_sum = 0.0
+        n = 0
+        while time.time() < t_end:
+            ax = BACK_OF_HAND_IMU.read_register(IMU_ACC_X) / ACCEL_SF
+            ay = BACK_OF_HAND_IMU.read_register(IMU_ACC_Y) / ACCEL_SF
+            az = BACK_OF_HAND_IMU.read_register(IMU_ACC_Z) / ACCEL_SF
+            gx = BACK_OF_HAND_IMU.read_register(IMU_GYR_X) / GYRO_SF
+            gy = BACK_OF_HAND_IMU.read_register(IMU_GYR_Y) / GYRO_SF
+            gz = BACK_OF_HAND_IMU.read_register(IMU_GYR_Z) / GYRO_SF
+            ax_sum += ax; ay_sum += ay; az_sum += az
+            gx_sum += gx; gy_sum += gy; gz_sum += gz
+            n += 1
+            time.sleep(0.002)
+        if n == 0: n = 1
+        bx, by, bz = gx_sum/n, gy_sum/n, gz_sum/n
+        ax0, ay0, az0 = ax_sum/n, ay_sum/n, az_sum/n
+        r0, p0 = self.accel_to_angles(ax0, ay0, az0)
+        print("Calibration done.\n")
+        self.enable_buttons()
+        return (bx, by, bz), (r0, p0)
+
+
+
+
+    def accel_to_angles(self, ax_g, ay_g, az_g):
+        roll  = math.degrees(math.atan2(ay_g, az_g if abs(az_g) > 1e-8 else 1e-8))
+        pitch = math.degrees(math.atan2(-ax_g, math.sqrt(ay_g*ay_g + az_g*az_g)))
+        return roll, pitch
 
 
     def update_image(self, image_path):
@@ -273,14 +319,14 @@ class LetterScreen(tk.Frame):
             print(f"Error loading image: {e}")
 
 def close_all():
-    spi.close()
+    #spi.close()
     sys.exit(0)
 
 def initialize_all():
     print("opening spi")
-    spi.open(0, 0)
-    spi.max_speed_hz = 1350000
-    BACK_OF_HAND_IMU.write_register(PWR_MGMT_1, 0)
+    #spi.open(0, 0)
+    #spi.max_speed_hz = 1350000
+    #BACK_OF_HAND_IMU.write_register(PWR_MGMT_1, 0)
 
 def gui():
     def on_closing():
@@ -293,8 +339,8 @@ def gui():
 
 
 if __name__ == '__main__':
-    bus = SMBus(1)
-    spi = spidev.SpiDev()
+    #bus = SMBus(1)
+    #spi = spidev.SpiDev()
     gui_thread = threading.Thread(target=gui, name='gui thread')
     gui_thread.start()
     print("initializing")
