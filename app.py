@@ -53,15 +53,16 @@ def identify_letter(sensor_values):
     """Compare sensor values against stored letter ranges in MongoDB"""
     try:
         print(f"Sensor values: {sensor_values}")  # Debugging log
-        
+        """ 
         for entry in collection.find():  
             # print(f"Checking entry: {entry}")  # Print MongoDB entries for debugging
 
-            match = all(
+           match = all(
                 int(entry.get(f'flex_sensor_{i+1}_min', 0)) <= sensor_values[i] <= int(entry.get(f'flex_sensor_{i+1}_max', 1023))
                 for i in range(5)
             )
 
+            if (
             if match:
                 detected_letter = entry.get('letter', '?')
                 red_led.turn_off()
@@ -69,8 +70,16 @@ def identify_letter(sensor_values):
                 # print(f"Match found! Letter: {detected_letter}")
                 return detected_letter
 
+        """
+        if sensor_values[0]>990 and sensor_values[1] >990 and sensor_values[2]>990 and sensor_values[3]>990 and sensor_values[4] < 500:
+            print("A")
+            return "A"
+        elif sensor_values[0]<500 and sensor_values[1] <500 and sensor_values[2]<500 and sensor_values[3]<500 and sensor_values[4] > 700:
+            print("B")
+            return "B"
+
         red_led.turn_on(-1)
-        print("No match found in database.")
+        #print("No match found in database.")
     except Exception as e:
         print(f"Error querying MongoDB: {e}")
 

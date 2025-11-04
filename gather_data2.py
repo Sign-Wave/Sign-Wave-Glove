@@ -168,7 +168,7 @@ class SignLanguageGUI:
     def show_sign(self, letter):
         img_path = os.path.join(IMG_DIR, f"{letter}.png")
         if os.path.exists(img_path):
-            img = Image.open(img_path).resize((250, 250))
+            img = Image.open(img_path).convert(mode="RGBA").resize((250, 250))
             self.tk_img = ImageTk.PhotoImage(img)
             self.image_label.config(image=self.tk_img, text="")
         else:
