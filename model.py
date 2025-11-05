@@ -4,10 +4,13 @@ import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torch import nn
 import pandas as pd
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from icecream import ic
+import seaborn as sns
+import joblib
+import argparse
 
 def train(dataloader, model, loss_func, optimizer):
     size = len(dataloader.dataset)
@@ -29,7 +32,8 @@ def train(dataloader, model, loss_func, optimizer):
 
 def test(dataloader, model, label_encoder):
     """
-    Evaluate the model on a test DataLoader and print a classification report.
+    Evaluate the model on a test DataLoader and print a classification report
+    and show a labeled confusion matrix.
     """
     model.eval()
     all_preds = []
@@ -44,10 +48,25 @@ def test(dataloader, model, label_encoder):
             all_preds.extend(preds.cpu().numpy())
             all_labels.extend(y.cpu().numpy())
 
-    # Convert numeric labels back to class names
+    # Convert back to readable class labels
     class_names = label_encoder.classes_
-    print("\nClassification Report:\n",
-          classification_report(all_labels, all_preds, target_names=class_names))
+
+    # ---- Print Classification Report ----
+    print("\nClassification Report:\n")
+    print(classification_report(all_labels, all_preds, target_names=class_names))
+
+    # ---- Create Confusion Matrix ----
+    cm = confusion_matrix(all_labels, all_preds)
+
+    # ---- Display Confusion Matrix ----
+    plt.figure(figsize=(14, 12))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+                xticklabels=class_names, yticklabels=class_names)
+    plt.xlabel("Predicted")
+    plt.ylabel("True Label")
+    plt.title("Sign Language Gesture Confusion Matrix")
+    plt.tight_layout()
+    plt.show()
 
 def validate(dataloader, model, loss_func):
     size = len(dataloader.dataset)
@@ -67,7 +86,7 @@ def validate(dataloader, model, loss_func):
 
 
 class SignLanguageDataset(Dataset):
-    def __init__(self, csv_file, scaler=None,LabelEncoder:label_encoder=None, fit=False):
+    def __init__(self, csv_file, scaler=None,label_encoder=None, fit=False):
         df = pd.read_csv(csv_file)
         X = df.drop(columns=["label"]).values.astype(np.float32)
         y = df["label"].values
@@ -116,10 +135,17 @@ class SignWaveNetwork(nn.Module):
 if __name__=='__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test", action="store_true",
+                        help="Run in test-only mode (skip training)")
+    args = parser.parse_args()
+
     BATCH_SIZE = 64 if torch.cuda.is_available() else 4
+    MODEL_FILE = "signwave_model"
+    MODEL_LOAD_SUCCESS = False
     learning_rate = 1e-4
 
-    dataset_file = "sign_language_test_data.csv"
+    dataset_file = "sign_language_data.csv"
 
 
     df = pd.read_csv(dataset_file)
@@ -152,19 +178,26 @@ if __name__=='__main__':
     model = SignWaveNetwork(input_dim, len(train_dataset.label_encoder.classes_)).to(device)
     #onnx_program = torch.onnx.export() # The PI Hat+
     try:
-        model.load_state_dict(torch.load("letter_class_model.pth")["model_state"])
+        model.load_state_dict(torch.load("signwave_model.pth", map_location=device))
+        model.eval()
+
+        scaler = joblib.load("scaler.pkl")
+        label_encoder = joblib.load("label_encoder.pkl")
         print("Success")
+        MODEL_LOAD_SUCCESS = True
     except Exception as e:
-        print("\n\npth file cannot be found at ./letter_class_model.pth\n\n")
+        ic(e)
+        print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
 
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-    epochs = 5
-    for t in range(epochs):
-        print(f"Epoch {t+1}\n--------------------------------------------")
-        train(train_dataloader, model, loss_func, optimizer)
-        validate(valid_dataloader, model, loss_func)
+    epochs = 30
+    if not (args.test and MODEL_LOAD_SUCCESS):
+        for t in range(epochs):
+            print(f"Epoch {t+1}\n--------------------------------------------")
+            train(train_dataloader, model, loss_func, optimizer)
+            validate(valid_dataloader, model, loss_func)
 
 
 
@@ -173,14 +206,16 @@ if __name__=='__main__':
     print("Done!")
 
     # Save model + metadata
-    torch.save({
-        "model_state": model.state_dict(),
-        "scaler": train_dataset.scaler,
-        "label_encoder": train_dataset.label_encoder,
-        "input_dim": input_dim,
-    }, "signwave_model.pth")
+    torch.save(model.state_dict(), "signwave_model.pth")   # save weights only
+    joblib.dump(train_dataset.scaler, "scaler.pkl")
+    joblib.dump(train_dataset.label_encoder, "label_encoder.pkl")
+
+    print("\nSaved:")
+    print(" - signwave_model.pth (model weights)")
+    print(" - scaler.pkl (feature normalizer)")
+    print(" - label_encoder.pkl (class mapping)\n")
 
     print("")
     print("*----------------------------------*")
-    print("|Model saved as 'signwave_model.pth'|")
+    print(f"|Model saved as '{MODEL_FILE}.pth'|")
     print("*----------------------------------*")

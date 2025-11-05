@@ -134,18 +134,18 @@ def train_model():
         "scaler": train_ds.scaler,
         "label_encoder": train_ds.label_encoder,
         "input_dim": input_dim,
-    }, "signwave_model.pth")
+    }, "signwave_model2.pth")
 
     print("")
     print("*----------------------------------*")
-    print("|Model saved as 'signwave_model.pth'|")
+    print("|Model saved as 'signwave_model2.pth'|")
     print("*----------------------------------*")
     return model, train_ds.scaler, train_ds.label_encoder
 
 # ---------------------------
 # Inference
 # ---------------------------
-def load_model(path="signwave_model.pth"):
+def load_model(path="signwave_model2.pth"):
     ckpt = torch.load(path, map_location=DEVICE)
     model = SignWaveNetwork(ckpt["input_dim"], len(ckpt["label_encoder"].classes_))
     model.load_state_dict(ckpt["model_state"])
