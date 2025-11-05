@@ -13,8 +13,8 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 # Config
 # ---------------------------
 #@TODO change
-CSV_FILE = "sign_language_test_data.csv" 
-BATCH_SIZE = 8
+CSV_FILE = "sign_language_data.csv"
+BATCH_SIZE = 64 if torch.cuda.is_available() else 4
 EPOCHS = 30
 LR = 1e-3
 CONF_THRESHOLD = 0.75   # confidence threshold for "relax"

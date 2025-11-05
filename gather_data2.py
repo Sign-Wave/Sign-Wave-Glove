@@ -10,6 +10,7 @@ import math
 import numpy as np
 import csv
 import os
+from icecream import ic
 from ahrs.filters import Madgwick
 
 # ---------------------------
@@ -208,6 +209,8 @@ class SignLanguageGUI:
             sample = self.collector.read_sample()
             data.append([letter, *sample])
             time.sleep(1.0 / SAMPLE_HZ)
+
+        ic(data)
 
         with open(CSV_FILE, 'a', newline='') as f:
             writer = csv.writer(f)

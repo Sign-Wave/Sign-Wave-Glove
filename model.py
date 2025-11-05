@@ -27,16 +27,27 @@ def train(dataloader, model, loss_func, optimizer):
             loss, current = loss.item(), (batch+1)*len(X)
             print(f"Batch:{batch}|loss: {loss:8f} [{current}|{size}]")
 
-def test(X, y, model):
+def test(dataloader, model, label_encoder):
+    """
+    Evaluate the model on a test DataLoader and print a classification report.
+    """
     model.eval()
-    X, y = X.to(device), y.to(device)
-    y_pred = model(X)
-    y_pred = y_pred.argmax(1)
-    y_np = y.cpu().numpy()
-    y_pred_np = y_pred.cpu().detach().numpy()
+    all_preds = []
+    all_labels = []
 
-    # Show classification evaluation
-    print("\nClassification Report:\n", classification_report(y_np, y_pred_np))
+    with torch.no_grad():
+        for X, y in dataloader:
+            X, y = X.to(device), y.to(device)
+            outputs = model(X)
+            preds = outputs.argmax(dim=1)
+
+            all_preds.extend(preds.cpu().numpy())
+            all_labels.extend(y.cpu().numpy())
+
+    # Convert numeric labels back to class names
+    class_names = label_encoder.classes_
+    print("\nClassification Report:\n",
+          classification_report(all_labels, all_preds, target_names=class_names))
 
 def validate(dataloader, model, loss_func):
     size = len(dataloader.dataset)
@@ -56,7 +67,7 @@ def validate(dataloader, model, loss_func):
 
 
 class SignLanguageDataset(Dataset):
-    def __init__(self, csv_file, scaler=None, label_encoder=None, fit=False):
+    def __init__(self, csv_file, scaler=None,LabelEncoder:label_encoder=None, fit=False):
         df = pd.read_csv(csv_file)
         X = df.drop(columns=["label"]).values.astype(np.float32)
         y = df["label"].values
@@ -105,7 +116,7 @@ class SignWaveNetwork(nn.Module):
 if __name__=='__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    BATCH_SIZE = 4
+    BATCH_SIZE = 64 if torch.cuda.is_available() else 4
     learning_rate = 1e-4
 
     dataset_file = "sign_language_test_data.csv"
@@ -141,7 +152,7 @@ if __name__=='__main__':
     model = SignWaveNetwork(input_dim, len(train_dataset.label_encoder.classes_)).to(device)
     #onnx_program = torch.onnx.export() # The PI Hat+
     try:
-        model.load_state_dict(torch.load("letter_class_model.pth", weights_only=True))
+        model.load_state_dict(torch.load("letter_class_model.pth")["model_state"])
         print("Success")
     except Exception as e:
         print("\n\npth file cannot be found at ./letter_class_model.pth\n\n")
@@ -158,13 +169,14 @@ if __name__=='__main__':
 
 
     print("Testing\n--------------------------------------------")
-    test(X_test, y_test, model)
+    test(test_dataloader, model, train_dataset.label_encoder)
     print("Done!")
+
     # Save model + metadata
     torch.save({
         "model_state": model.state_dict(),
-        "scaler": train_ds.scaler,
-        "label_encoder": train_ds.label_encoder,
+        "scaler": train_dataset.scaler,
+        "label_encoder": train_dataset.label_encoder,
         "input_dim": input_dim,
     }, "signwave_model.pth")
 
