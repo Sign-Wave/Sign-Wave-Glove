@@ -192,7 +192,7 @@ if __name__=='__main__':
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-    epochs = 30
+    epochs = 10
     if not (args.test and MODEL_LOAD_SUCCESS):
         for t in range(epochs):
             print(f"Epoch {t+1}\n--------------------------------------------")

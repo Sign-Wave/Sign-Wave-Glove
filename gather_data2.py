@@ -133,11 +133,20 @@ class SignLanguageGUI:
         self.root.title("Sign Language Data Collector")
         self.root.geometry("700x600")
 
-        tk.Label(root, text="Select a letter to record data:", font=("Arial", 16)).pack(pady=10)
+        self.calibrated = False  # Track whether calibration has been done
+
+        # Instruction Label
+        tk.Label(root, text="Select a letter to record:", font=("Arial", 16)).pack(pady=5)
+
+        # --- Calibration Button ---
+        self.cal_button = tk.Button(root, text="Calibrate Sensors", font=("Arial", 14),
+                                    command=self.calibrate_sensors, bg="#d8f3dc")
+        self.cal_button.pack(pady=10)
+
         frame = tk.Frame(root)
         frame.pack()
 
-        # Create letter buttons
+        # Letter Buttons
         self.buttons = {}
         for i, letter in enumerate("ABCDEFGHIJKLMNOPQRSTUVWXYZ"):
             btn = tk.Button(frame, text=letter, width=4, height=2,
@@ -145,19 +154,19 @@ class SignLanguageGUI:
             btn.grid(row=i//8, column=i%8, padx=5, pady=5)
             self.buttons[letter] = btn
 
-        # Sign image display
+        # Sign Image
         self.image_label = tk.Label(root)
         self.image_label.pack(pady=10)
 
-        # Countdown label
+        # Countdown
         self.countdown_label = tk.Label(root, text="", font=("Arial", 32), fg="red")
-        self.countdown_label.pack(pady=10)
+        self.countdown_label.pack()
 
-        # Status bar
-        self.status = tk.Label(root, text="", font=("Arial", 12))
+        # Status Bar
+        self.status = tk.Label(root, text="Calibration Required", font=("Arial", 12), fg="red")
         self.status.pack(pady=10)
 
-        # Create CSV header if needed
+        # Create CSV if needed
         if not os.path.exists(CSV_FILE):
             with open(CSV_FILE, 'w', newline='') as f:
                 writer = csv.writer(f)
@@ -165,8 +174,21 @@ class SignLanguageGUI:
                            "ax", "ay", "az"] + [f"flex{i}" for i in range(5)]
                 writer.writerow(headers)
 
-    # --- Show the letter's image ---
+    # --- Calibration Button Action ---
+    def calibrate_sensors(self):
+        self.status.config(text="Calibrating... Hold glove still.", fg="orange")
+        self.root.update()
+        self.collector.calibrate()
+        self.calibrated = True
+        self.status.config(text="Calibration Complete ✓", fg="green")
+        messagebox.showinfo("Calibration", "Sensors have been calibrated.\nYou may now record letters.")
+
+    # --- Show sign image ---
     def show_sign(self, letter):
+        if not self.calibrated:
+            messagebox.showwarning("Calibration Required", "Please press 'Calibrate Sensors' before recording.")
+            return
+
         img_path = os.path.join(IMG_DIR, f"{letter}.png")
         if os.path.exists(img_path):
             img = Image.open(img_path).convert(mode="RGBA").resize((250, 250))
@@ -175,10 +197,10 @@ class SignLanguageGUI:
         else:
             self.image_label.config(image='', text=f"(No image for {letter})")
 
-        if messagebox.askyesno("Start Recording", f"Ready to record data for '{letter}'?"):
+        if messagebox.askyesno("Start Recording", f"Record samples for '{letter}'?"):
             self.record_letter(letter)
 
-    # --- Countdown before capture ---
+    # Countdown stays the same
     def countdown(self, seconds):
         for i in range(seconds, 0, -1):
             self.countdown_label.config(text=str(i))
@@ -189,16 +211,9 @@ class SignLanguageGUI:
         time.sleep(0.5)
         self.countdown_label.config(text="")
 
-    # --- Record letter data ---
+    # --- Record Data (Calibration removed here) ---
     def record_letter(self, letter):
-        self.status.config(text=f"Calibrating for letter '{letter}'...")
-        self.root.update()
-        self.collector.calibrate()
-
-        messagebox.showinfo("Calibration", "Calibration done. Get into position, press OK to start countdown.")
-        self.countdown(3)
-
-        self.status.config(text=f"Recording letter '{letter}'...")
+        self.status.config(text=f"Recording '{letter}'...", fg="blue")
         self.root.update()
 
         duration = 3.0
@@ -216,13 +231,12 @@ class SignLanguageGUI:
             writer = csv.writer(f)
             writer.writerows(data)
 
-        self.status.config(text=f"Recorded {n_samples} samples for '{letter}'.")
-        messagebox.showinfo("Done", f"Saved {n_samples} samples for letter '{letter}'.")
+        self.status.config(text=f"Recorded {n_samples} samples for '{letter}'.", fg="green")
+        messagebox.showinfo("Done", f"Saved {n_samples} samples for '{letter}'.")
 
     def on_close(self):
         self.collector.close()
         self.root.destroy()
-
 # ---------------------------
 # Main
 # ---------------------------
