@@ -132,6 +132,37 @@ class SignWaveNetwork(nn.Module):
     def forward(self, x):
         return self.linear_ReLU_stack(x)
 
+
+# ---------------------------
+# Inference
+# ---------------------------
+def load_model(path="signwave_model2.pth"):
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    ckpt = torch.load(path, map_location=DEVICE)
+    model = SignWaveNetwork(ckpt["input_dim"], len(ckpt["label_encoder"].classes_))
+    model.load_state_dict(ckpt["model_state"])
+    model.to(DEVICE)
+    model.eval()
+    return model, ckpt["scaler"], ckpt["label_encoder"]
+
+def predict(model, scaler, label_encoder, data_row, threshold=0.75):
+    """
+    data_row: list or np.array of shape (num_features,)
+    """
+    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    x = np.array(data_row, dtype=np.float32).reshape(1, -1)
+    x = scaler.transform(x)
+    x = torch.tensor(x, dtype=torch.float32).to(DEVICE)
+    with torch.no_grad():
+        logits = model(x)
+        probs = torch.softmax(logits, dim=1).cpu().numpy().flatten()
+        conf = probs.max()
+        pred_idx = probs.argmax()
+        pred_label = label_encoder.inverse_transform([pred_idx])[0]
+        if conf < threshold:
+            return "relax", conf
+        return pred_label, conf
+
 if __name__=='__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -179,8 +210,6 @@ if __name__=='__main__':
     #onnx_program = torch.onnx.export() # The PI Hat+
     try:
         model.load_state_dict(torch.load("signwave_model.pth", map_location=device))
-        model.eval()
-
         scaler = joblib.load("scaler.pkl")
         label_encoder = joblib.load("label_encoder.pkl")
         print("Success")
