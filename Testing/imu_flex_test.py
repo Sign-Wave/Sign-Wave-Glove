@@ -106,8 +106,8 @@ def main():
     dt_target = 1.0 / PRINT_HZ
     t_prev = time.perf_counter()
 
-    print("\n ROLL   PITCH  |  F0   F1   F2   F3   F4")
-    print("-------------------------------------------")
+    print("\n ROLL   PITCH  |  THM   PTR   MID   RNG   PKY")
+    print("-----------------------------------------------")
 
     try:
         while True:

@@ -216,7 +216,7 @@ class SignLanguageGUI:
         self.status.config(text=f"Recording '{letter}'...", fg="blue")
         self.root.update()
 
-        duration = 3.0
+        duration = 2.0
         n_samples = int(duration * SAMPLE_HZ)
         data = []
 
