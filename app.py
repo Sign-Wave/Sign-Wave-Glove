@@ -264,14 +264,13 @@ class training_e(Enum):
     SEND_LETTER = 4
     TIMEOUT = 5
 
-    
-
-
-def training_FSM():
+def training_FSM(target_sign:str):
     """
     
     """
     state = training_e.RESET_LEDS
+    curr_sign = "?"
+    curr_data = []
 
     while not STOP_TRAIN.is_set():
         match state:
@@ -279,9 +278,31 @@ def training_FSM():
                 red_led.turn_on(-1) # keep red on
 
             case training_e.GET_CURR_SIGN:
-                pass
+                time.sleep(1/SAMPLE_HZ)
+
+
+                data = collect_data.read_sample()
+                np_data = np.array(data, dtype=np.float32)
+
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, data, CONF_THRESHOLD)
+                
+                print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
+                print(f"              data: {data}")
+
+                if detected_label == curr_sign:
+                    curr_sign = detected_label
+                    curr_data = data
+                    detect_cnt+=1
+                else:
+                    curr_sign = detected_label
+                    curr_data = data
+                    detect_cnt = 0
+
+                if detect_cnt >= __stable_cnt:
+                    state = state = translate_e.SEND_SIGN
             case training_e.CHECK_SIGN:
-                pass
+                time.sleep(0.5)
+                if detected_label != 
             case training_e.SET_LEDS:
                 pass
             case training_e.SEND_LETTER:
