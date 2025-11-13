@@ -302,7 +302,8 @@ def training_FSM(target_sign:str):
                     state = state = translate_e.SEND_SIGN
             case training_e.CHECK_SIGN:
                 time.sleep(0.5)
-                if detected_label != 
+                if detected_label != target_sign:
+                    pass
             case training_e.SET_LEDS:
                 pass
             case training_e.SEND_LETTER:
