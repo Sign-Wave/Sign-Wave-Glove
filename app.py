@@ -218,7 +218,7 @@ def translate_FSM():
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
                         detect_cnt = 0
-                        emit('letter_detected', {'letter':'Relaxed'})
+                        socketio.emit('letter_detected', {'letter':'Relaxed'})
                         state = translate_e.DETECT_SIGN
                     else:
                         detect_cnt += 1
@@ -250,7 +250,7 @@ def translate_FSM():
 
             case translate_e.SEND_SIGN:
                 print(f"{time.time()}: Sending detected letter {curr_sign}")
-                emit('letter_detected', {'letter':curr_sign, 'sensor_data':curr_data})
+                socketio.emit('letter_detected', {'letter':curr_sign, 'sensor_data':curr_data})
                 time.sleep(1)
                 state = translate_e.LATCH_PARAMS_AND_FLAGS
 
