@@ -63,9 +63,9 @@ def setup_mpu(bus):
     bus.write_byte_data(MPU6050_ADDR, PWR_MGMT_1, 0x00)
     time.sleep(0.05)
 
-def calibrate(bus):
+def calibrate(bus, calibration_time=CALIBRATION_TIME):
     print("\nCalibrating... Keep the device steady.")
-    t_end = time.time() + CALIBRATION_TIME
+    t_end = time.time() + calibration_time
     gx_sum = gy_sum = gz_sum = 0.0
     n = 0
     while time.time() < t_end:
@@ -94,8 +94,8 @@ class DataCollector:
         self.q = np.array([1.0, 0.0, 0.0, 0.0])
         self.bias = (0, 0, 0)
 
-    def calibrate(self):
-        self.bias = calibrate(self.bus)
+    def calibrate(self, calibration_time = CALIBRATION_TIME):
+        self.bias = calibrate(self.bus, calibration_time)
 
     def read_sample(self):
         bx, by, bz = self.bias

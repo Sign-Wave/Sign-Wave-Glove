@@ -136,20 +136,22 @@ class SignWaveNetwork(nn.Module):
 # ---------------------------
 # Inference
 # ---------------------------
-def load_model(path="signwave_model2.pth"):
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ckpt = torch.load(path, map_location=DEVICE)
-    model = SignWaveNetwork(ckpt["input_dim"], len(ckpt["label_encoder"].classes_))
-    model.load_state_dict(ckpt["model_state"])
-    model.to(DEVICE)
-    model.eval()
-    return model, ckpt["scaler"], ckpt["label_encoder"]
+def load_model(model_path="signwave_model.pth", label_enc_path="label_encoder.pkl", scaler_path="scaler.pkl"):
+    __device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    __model = SignWaveNetwork(14, 26)
+    __state = torch.load(model_path, map_location=__device)
+    __model.load_state_dict(__state)
+    __model.eval()
+    __scaler = joblib.load("scaler.pkl")               # StandardScaler/MinMaxScaler/Pipeline
+    __label_encoder = joblib.load("label_encoder.pkl") # sklearn LabelEncoder OR your own object/dict
+    return __model, __scaler, __label_encoder
 
 def predict(model, scaler, label_encoder, data_row, threshold=0.75):
     """
     data_row: list or np.array of shape (num_features,)
     """
-    DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    __device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     x = np.array(data_row, dtype=np.float32).reshape(1, -1)
     x = scaler.transform(x)
     x = torch.tensor(x, dtype=torch.float32).to(DEVICE)
@@ -159,8 +161,6 @@ def predict(model, scaler, label_encoder, data_row, threshold=0.75):
         conf = probs.max()
         pred_idx = probs.argmax()
         pred_label = label_encoder.inverse_transform([pred_idx])[0]
-        if conf < threshold:
-            return "relax", conf
         return pred_label, conf
 
 if __name__=='__main__':
@@ -171,7 +171,7 @@ if __name__=='__main__':
                         help="Run in test-only mode (skip training)")
     args = parser.parse_args()
 
-    BATCH_SIZE = 64 if torch.cuda.is_available() else 4
+    BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
     learning_rate = 1e-4
@@ -182,6 +182,7 @@ if __name__=='__main__':
     df = pd.read_csv(dataset_file)
     X = df.drop(columns=["label"]).values
     input_dim = X.shape[1]
+    ic(input_dim)
 
 
     df_train, df_temp = train_test_split(df, test_size=0.3, random_state=42, stratify=df["label"])  # stratify keeps class balance
@@ -206,6 +207,7 @@ if __name__=='__main__':
     valid_dataloader = DataLoader(valid_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
 
+    ic(len(train_dataset.label_encoder.classes_))
     model = SignWaveNetwork(input_dim, len(train_dataset.label_encoder.classes_)).to(device)
     #onnx_program = torch.onnx.export() # The PI Hat+
     try:
@@ -221,7 +223,7 @@ if __name__=='__main__':
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-    epochs = 10
+    epochs = 5
     if not (args.test and MODEL_LOAD_SUCCESS):
         for t in range(epochs):
             print(f"Epoch {t+1}\n--------------------------------------------")
