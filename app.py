@@ -213,7 +213,11 @@ def translate_FSM():
                 time.sleep(1/SAMPLE_HZ)
                 roll, pitch, yaw, _, _, _, _, _, _, thumb_flex, index_flex, middle_flex, ring_flex, pinky_flex = collect_data.read_sample()
 
-                if (roll < 20) and (pitch < 20) and (yaw < 20) and (thumb_flex < 500) and (index_flex < 500) and (middle_flex < 500) and (ring_flex < 500) and (pinky_flex < 500):
+
+                print(f"roll:{roll} pitch:{pitch} yaw:{yaw}")
+                print(f"thumb_flex:{thumb_flex} index_flex:{index_flex} middle_flex:{middle_flex} ring_flex:{ring_flex} pinky_flex:{pinky_flex}")
+                print("")
+                if (roll < 20) and (pitch < 20) and (yaw < 20) and (thumb_flex < 900) and (index_flex < 900) and (middle_flex < 900) and (ring_flex < 900) and (pinky_flex < 900):
                     print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
@@ -236,7 +240,7 @@ def translate_FSM():
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if detected_label == curr_sign:
+                if (detected_label == curr_sign) and (confidence > 0.6):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
@@ -318,4 +322,3 @@ if __name__ == '__main__':
     #socketio.start_background_task(emit_sensor_data)
     socketio.run(app, host='0.0.0.0', port=5000)
     signal.pause()
-    
