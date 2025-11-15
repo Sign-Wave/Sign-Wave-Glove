@@ -154,7 +154,7 @@ def predict(model, scaler, label_encoder, data_row, threshold=0.75):
 
     x = np.array(data_row, dtype=np.float32).reshape(1, -1)
     x = scaler.transform(x)
-    x = torch.tensor(x, dtype=torch.float32).to(DEVICE)
+    x = torch.tensor(x, dtype=torch.float32).to(__device)
     with torch.no_grad():
         logits = model(x)
         probs = torch.softmax(logits, dim=1).cpu().numpy().flatten()
@@ -176,7 +176,7 @@ if __name__=='__main__':
     MODEL_LOAD_SUCCESS = False
     learning_rate = 1e-4
 
-    dataset_file = "sign_language_data.csv"
+    dataset_file = "sign_language_test_data.csv"
 
 
     df = pd.read_csv(dataset_file)
@@ -223,7 +223,7 @@ if __name__=='__main__':
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-    epochs = 5
+    epochs = 25
     if not (args.test and MODEL_LOAD_SUCCESS):
         for t in range(epochs):
             print(f"Epoch {t+1}\n--------------------------------------------")

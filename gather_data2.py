@@ -109,6 +109,7 @@ class DataCollector:
         gyr = np.array([gx, gy, gz]) * np.pi / 180.0
         acc = np.array([ax, ay, az])
         self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc)
+        
 
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
                                        1 - 2*(self.q[1]**2 + self.q[2]**2)))
@@ -117,7 +118,8 @@ class DataCollector:
                                       1 - 2*(self.q[2]**2 + self.q[3]**2)))
 
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
-        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
+        #return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
+        return gx, gy, gz, ax, ay, az, *flex_vals
 
     def close(self):
         self.spi.close()
