@@ -123,10 +123,18 @@ class SignWaveNetwork(nn.Module):
             nn.Linear(input_dim, 128),
             nn.ReLU(),
             nn.BatchNorm1d(128),
-            nn.Dropout(0.2),
+            nn.Dropout(0.3),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.BatchNorm1d(128),
+            nn.Dropout(0.3),
             nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(64, num_classes)
+            nn.Dropout(0.3),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(32, num_classes)
         )
 
     def forward(self, x):
@@ -169,6 +177,10 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true",
                         help="Run in test-only mode (skip training)")
+    parser.add_argument("--noload", action="store_true",
+                        help="Don't save the model")
+    parser.add_argument("--epochs", action='store', default=35,
+                        help="sets the number of epochs the model is trained for")
     args = parser.parse_args()
 
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
@@ -176,7 +188,7 @@ if __name__=='__main__':
     MODEL_LOAD_SUCCESS = False
     learning_rate = 1e-4
 
-    dataset_file = "sign_language_test_data.csv"
+    dataset_file = "synth_sign_language_test_data.csv"
 
 
     df = pd.read_csv(dataset_file)
@@ -210,20 +222,21 @@ if __name__=='__main__':
     ic(len(train_dataset.label_encoder.classes_))
     model = SignWaveNetwork(input_dim, len(train_dataset.label_encoder.classes_)).to(device)
     #onnx_program = torch.onnx.export() # The PI Hat+
-    try:
-        model.load_state_dict(torch.load("signwave_model.pth", map_location=device))
-        scaler = joblib.load("scaler.pkl")
-        label_encoder = joblib.load("label_encoder.pkl")
-        print("Success")
-        MODEL_LOAD_SUCCESS = True
-    except Exception as e:
-        ic(e)
-        print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
+    if not args.noload:
+        try:
+            model.load_state_dict(torch.load("signwave_model.pth", map_location=device))
+            scaler = joblib.load("scaler.pkl")
+            label_encoder = joblib.load("label_encoder.pkl")
+            print("Success")
+            MODEL_LOAD_SUCCESS = True
+        except Exception as e:
+            ic(e)
+            print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
 
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
 
-    epochs = 25
+    epochs = int(args.epochs)
     if not (args.test and MODEL_LOAD_SUCCESS):
         for t in range(epochs):
             print(f"Epoch {t+1}\n--------------------------------------------")
