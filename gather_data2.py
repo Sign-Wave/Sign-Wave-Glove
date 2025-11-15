@@ -95,6 +95,10 @@ class DataCollector:
         self.bias = (0, 0, 0)
 
     def calibrate(self, calibration_time = CALIBRATION_TIME):
+        # reset orientation state
+        self.q = np.array([1.0, 0.0, 0.0, 0.0])
+        self.fuse = Madgwick()
+        # compute gyro bias
         self.bias = calibrate(self.bus, calibration_time)
 
     def read_sample(self):
@@ -118,8 +122,8 @@ class DataCollector:
                                       1 - 2*(self.q[2]**2 + self.q[3]**2)))
 
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
-        #return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
-        return gx, gy, gz, ax, ay, az, *flex_vals
+        #return gx, gy, gz, ax, ay, az, *flex_vals
+        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
 
     def close(self):
         self.spi.close()

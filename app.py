@@ -211,13 +211,13 @@ def translate_FSM():
                 state = translate_e.DETECT_RELAX
             case translate_e.DETECT_RELAX:
                 time.sleep(1/SAMPLE_HZ)
-                gx, gy, gz, ax, ay, az, thumb_flex, index_flex, middle_flex, ring_flex, pinky_flex = collect_data.read_sample()
+                roll, pitch, yaw, _, _, _, _, _, _, thumb_flex, index_flex, middle_flex, ring_flex, pinky_flex = collect_data.read_sample()
 
 
                 print(f"roll:{roll} pitch:{pitch} yaw:{yaw}")
                 print(f"thumb_flex:{thumb_flex} index_flex:{index_flex} middle_flex:{middle_flex} ring_flex:{ring_flex} pinky_flex:{pinky_flex}")
                 print("")
-                if (gx < 20) and (gy < 20) and (gz < 20) and (ax < 20) and (ay < 20) and (az < 20) and (thumb_flex < 900) and (index_flex < 900) and (middle_flex < 900) and (ring_flex < 900) and (pinky_flex < 900):
+                if (roll < 20) and (pitch < 20) and (yaw < 20) and (thumb_flex < 900) and (index_flex < 900) and (middle_flex < 900) and (ring_flex < 900) and (pinky_flex < 900):
                     print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
