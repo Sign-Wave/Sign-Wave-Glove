@@ -172,7 +172,7 @@ class SignLanguageGUI:
         if not os.path.exists(CSV_FILE):
             with open(CSV_FILE, 'w', newline='') as f:
                 writer = csv.writer(f)
-                headers = ["label", "roll", "pitch", "yaw", "gx", "gy", "gz",
+                headers = ["label", "gx", "gy", "gz",
                            "ax", "ay", "az"] + [f"flex{i}" for i in range(5)]
                 writer.writerow(headers)
 
