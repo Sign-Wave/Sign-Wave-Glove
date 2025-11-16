@@ -125,7 +125,7 @@ class DataCollector:
         if dt > 0.2:      # if delayed by >200ms, clamp to normal
             dt = 1.0 / SAMPLE_HZ
 
-        self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc, dt=dt)
+        self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc)
 
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
                                        1 - 2*(self.q[1]**2 + self.q[2]**2)))
