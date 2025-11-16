@@ -12,6 +12,7 @@ import csv
 import os
 from icecream import ic
 from ahrs.filters import Madgwick
+from led import led
 
 # ---------------------------
 # Configuration
@@ -34,6 +35,28 @@ SAMPLE_HZ = 30
 CALIBRATION_TIME = 1.0
 CSV_FILE = "sign_language_data.csv"
 IMG_DIR = "./Sign-language-pics"
+
+# Copper tape GPIO pins
+THUMB_TAPE_PIN = 21
+INDEX_OUTSIDE_PIN = 20
+INDEX_INSIDE_PIN = 26
+MIDDLE_FINGERPRINT_PIN = 19
+MIDDLE_INSIDE_TO_INDEX_PIN = 16
+MIDDLE_INSIDE_TO_RING_PIN = 13
+RING_TAPE_PIN = 6
+
+
+# These ones are held at 3.3V
+THUMB_TAPE = led(gpio_pin=THUMB_TAPE_PIN, default=1)
+MIDDLE_INSIDE_TO_INDEX = led(gpio_pin=MIDDLE_INSIDE_TO_INDEX_PIN, default=1)
+
+# These ones are held low, and the value is read
+INDEX_OUTSIDE = led(gpio_pin=INDEX_OUTSIDE_PIN, is_input=1)
+INDEX_INSIDE = led(gpio_pin=INDEX_INSIDE_PIN, is_input=1)
+MIDDLE_FINGERPRINT = led(gpio_pin=MIDDLE_FINGERPRINT_PIN, is_input=1)
+MIDDLE_INSIDE_TO_RING = led(gpio_pin=MIDDLE_INSIDE_TO_RING_PIN, is_input=1)
+RING_TAPE = led(gpio_pin=RING_TAPE_PIN, is_input=1)
+
 
 # ---------------------------
 # Hardware helpers
@@ -96,6 +119,20 @@ class DataCollector:
         self.sample_Hz = sample_Hz
         self.last_time = time.time()
 
+        # These ones are held at 3.3V
+        self.thumb_tape = led(gpio_pin=THUMB_TAPE_PIN, default=1)
+        self.middle_inside_to_index = led(gpio_pin=MIDDLE_INSIDE_TO_INDEX_PIN, default=1)
+
+        self.thumb_tape.turn_on()
+        self.middle_inside_to_index.turn_on()
+
+        # These ones are held low, and the value is read
+        self.index_outside = led(gpio_pin=INDEX_OUTSIDE_PIN, is_input=1)
+        self.index_inside = led(gpio_pin=INDEX_INSIDE_PIN, is_input=1)
+        self.middle_fingerprint = led(gpio_pin=MIDDLE_FINGERPRINT_PIN, is_input=1)
+        self.middle_inside_to_ring = led(gpio_pin=MIDDLE_INSIDE_TO_RING_PIN, is_input=1)
+        self.ring_tape = led(gpio_pin=RING_TAPE_PIN, is_input=1)
+
     def calibrate(self, calibration_time = CALIBRATION_TIME):
         # reset orientation state
         self.q = np.array([1.0, 0.0, 0.0, 0.0])
@@ -127,6 +164,13 @@ class DataCollector:
 
         self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc)
 
+        # Read copper tape
+        index_outside_val = self.index_outside.read_value()
+        index_inside_val = self.index_inside.read_value()
+        middle_fingerprint_val = self.middle_fingerprint.read_value()
+        middle_inside_to_ring_val = self.middle_inside_to_ring.read_value()
+        ring_tape_val = self.ring_tape.read_value()
+
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
                                        1 - 2*(self.q[1]**2 + self.q[2]**2)))
         pitch = math.degrees(math.asin(2*(self.q[0]*self.q[2] - self.q[3]*self.q[1])))
@@ -135,7 +179,7 @@ class DataCollector:
 
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
         #return gx, gy, gz, ax, ay, az, *flex_vals
-        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
+        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals, index_outside_val, index_inside_val, middle_fingerprint_val, middle_inside_to_ring_val, ring_tape_val
 
     def close(self):
         self.spi.close()
@@ -195,7 +239,7 @@ class SignLanguageGUI:
             with open(CSV_FILE, 'w', newline='') as f:
                 writer = csv.writer(f)
                 headers = ["label", "gx", "gy", "gz",
-                           "ax", "ay", "az"] + [f"flex{i}" for i in range(5)]
+                           "ax", "ay", "az"] + [f"flex{i}" for i in range(5)] + ["index_outside", "index_inside", "middle_fingerprint", "middle_inside_to_ring", "ring_tape"]
                 writer.writerow(headers)
 
     # --- Calibration Button Action ---
