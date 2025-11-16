@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torch import nn
-from lion_pytorch import Lion
 import pandas as pd
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
