@@ -86,13 +86,15 @@ def calibrate(bus, calibration_time=CALIBRATION_TIME):
 # Data Collector
 # ---------------------------
 class DataCollector:
-    def __init__(self):
+    def __init__(self, sample_Hz):
         self.spi = open_spi()
         self.bus = smbus2.SMBus(1)
         setup_mpu(self.bus)
         self.fuse = Madgwick()
         self.q = np.array([1.0, 0.0, 0.0, 0.0])
         self.bias = (0, 0, 0)
+        self.sample_Hz = sample_Hz
+        self.last_time = time.time()
 
     def calibrate(self, calibration_time = CALIBRATION_TIME):
         # reset orientation state
@@ -100,6 +102,7 @@ class DataCollector:
         self.fuse = Madgwick()
         # compute gyro bias
         self.bias = calibrate(self.bus, calibration_time)
+        self.last_time = time.time()
 
     def read_sample(self):
         bx, by, bz = self.bias
@@ -112,8 +115,17 @@ class DataCollector:
 
         gyr = np.array([gx, gy, gz]) * np.pi / 180.0
         acc = np.array([ax, ay, az])
-        self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc)
+
+          # ---- REAL dt calculation ----
+        current = time.time()
+        dt = current - self.last_time
+        self.last_time = current
         
+        # ---- protect against huge dt spikes (GUI lag, notifications, etc.) ----
+        if dt > 0.2:      # if delayed by >200ms, clamp to normal
+            dt = 1.0 / SAMPLE_HZ
+
+        self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc, dt=dt)
 
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
                                        1 - 2*(self.q[1]**2 + self.q[2]**2)))
