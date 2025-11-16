@@ -12,6 +12,6 @@ if __name__ == '__main__':
     while True:
         dd['roll'],dd['pitch'],dd['yaw'],dd['gx'],dd['gy'],dd['gz'],dd['ax'],dd['ay'],dd['az'],dd['thumb_flex'],dd['index_flex'],dd['middle_flex'],dd['ring_flex'],dd['pinky_flex'] = collect_data.read_sample()
 
-        df = pd.DataFrame(dd)
+        df = pd.DataFrame([dd])
 
         ic(dd.head())
