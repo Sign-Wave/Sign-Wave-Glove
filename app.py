@@ -37,7 +37,7 @@ MONGO_URI = "mongodb+srv://kylemendes65:signwave1234@signwavesensor.hrn11.mongod
 client = MongoClient(MONGO_URI)
 
 
-collect_data = DataCollector(sample_Hz=SAMPLE_HZ)
+collect_data = DataCollector()
 
 # Ensure correct database and collection
 db = client['asl_data']

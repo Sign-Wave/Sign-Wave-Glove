@@ -82,60 +82,196 @@ def calibrate(bus, calibration_time=CALIBRATION_TIME):
     print("Calibration done.\n")
     return gx_sum/n, gy_sum/n, gz_sum/n
 
+class KalmanAngle:
+    """
+    Simple 1D Kalman filter for an angle using:
+      - gyro rate as process (prediction)
+      - accelerometer angle as measurement (correction)
+
+    State:
+      x = [angle, bias]^T
+
+    Model:
+      angle_k+1 = angle_k + dt * (gyro_rate_k - bias_k)
+      bias_k+1  = bias_k
+
+    Measurement:
+      z_k = angle_k + measurement_noise
+    """
+    def __init__(self, Q_angle=0.001, Q_bias=0.003, R_measure=0.03):
+        # Process noise
+        self.Q_angle = Q_angle
+        self.Q_bias = Q_bias
+        # Measurement noise
+        self.R_measure = R_measure
+
+        # State
+        self.angle = 0.0   # filtered angle
+        self.bias = 0.0    # estimated gyro bias
+
+        # Error covariance matrix P
+        self.P = np.zeros((2, 2), dtype=float)
+
+    def set_angle(self, angle):
+        """Initialize the filter with a starting angle."""
+        self.angle = angle
+        self.bias = 0.0
+        self.P[:] = 0.0
+
+    def get_angle(self, new_angle, new_rate, dt):
+        """
+        new_angle: angle measurement from accelerometer (deg)
+        new_rate:  gyro rate (deg/s)
+        dt:        time step (s)
+        """
+        # ---------- PREDICTION ----------
+        # 1) Predict the angle using gyro (minus bias)
+        rate = new_rate - self.bias
+        self.angle += dt * rate
+
+        # 2) Update the error covariance matrix
+        #   [ angle ]
+        #   [ bias  ]
+        #
+        #  A = [[1, -dt],
+        #       [0,  1 ]]
+        #
+        #  Q = [[Q_angle, 0],
+        #       [0,      Q_bias]]
+
+        P00_temp = self.P[0, 0]
+        P01_temp = self.P[0, 1]
+        P10_temp = self.P[1, 0]
+        P11_temp = self.P[1, 1]
+
+        self.P[0, 0] = P00_temp + dt * (dt*P11_temp - P01_temp - P10_temp + self.Q_angle)
+        self.P[0, 1] = P01_temp - dt * P11_temp
+        self.P[1, 0] = P10_temp - dt * P11_temp
+        self.P[1, 1] = P11_temp + self.Q_bias * dt
+
+        # ---------- UPDATE (MEASUREMENT) ----------
+        # Measurement matrix H = [1, 0]
+        # Innovation: y = z - Hx = new_angle - angle
+        y = new_angle - self.angle
+
+        # Innovation covariance: S = H P H^T + R = P[0,0] + R_measure
+        S = self.P[0, 0] + self.R_measure
+
+        # Kalman gain: K = P H^T / S  -> [P00 / S, P10 / S]^T
+        K0 = self.P[0, 0] / S
+        K1 = self.P[1, 0] / S
+
+        # Update state
+        self.angle += K0 * y
+        self.bias  += K1 * y
+
+        # Update P = (I - K H) P
+        P00_new = self.P[0, 0] - K0 * self.P[0, 0]
+        P01_new = self.P[0, 1] - K0 * self.P[0, 1]
+        P10_new = self.P[1, 0] - K1 * self.P[0, 0]
+        P11_new = self.P[1, 1] - K1 * self.P[0, 1]
+
+        self.P[0, 0] = P00_new
+        self.P[0, 1] = P01_new
+        self.P[1, 0] = P10_new
+        self.P[1, 1] = P11_new
+
+        return self.angle
+
+
 # ---------------------------
 # Data Collector
 # ---------------------------
 class DataCollector:
-    def __init__(self, sample_Hz):
+    def __init__(self):
         self.spi = open_spi()
         self.bus = smbus2.SMBus(1)
         setup_mpu(self.bus)
-        self.fuse = Madgwick()
-        self.q = np.array([1.0, 0.0, 0.0, 0.0])
+
+        # You can keep Madgwick if you still want it for yaw,
+        # but for now we'll focus on Kalman for roll/pitch:
+        # self.fuse = Madgwick()
+        # self.q = np.array([1.0, 0.0, 0.0, 0.0])
+
         self.bias = (0, 0, 0)
-        self.sample_Hz = sample_Hz
-        self.last_time = time.time()
 
-    def calibrate(self, calibration_time = CALIBRATION_TIME):
-        # reset orientation state
-        self.q = np.array([1.0, 0.0, 0.0, 0.0])
-        self.fuse = Madgwick()
-        # compute gyro bias
+        # Kalman filters for roll and pitch
+        self.kalman_roll = KalmanAngle()
+        self.kalman_pitch = KalmanAngle()
+
+        # For time-based dt and yaw integration
+        self.last_time = time.time()
+        self.yaw = 0.0
+
+    def calibrate(self, calibration_time=CALIBRATION_TIME):
         self.bias = calibrate(self.bus, calibration_time)
+
+        # Reset yaw and timing
+        self.yaw = 0.0
         self.last_time = time.time()
 
-    def read_sample(self):
-        bx, by, bz = self.bias
+        # Initialize Kalman filters with current accel-based angles
+        # (we'll do a quick read to get starting angles)
         ax = read_word(self.bus, ACCEL_XOUT_H) / ACCEL_SF
         ay = read_word(self.bus, ACCEL_XOUT_H + 2) / ACCEL_SF
         az = read_word(self.bus, ACCEL_XOUT_H + 4) / ACCEL_SF
-        gx = read_word(self.bus, GYRO_XOUT_H) / GYRO_SF - bx
+
+        # accel angles (in radians)
+        roll_acc = math.atan2(ay, az)
+        pitch_acc = math.atan2(-ax, math.sqrt(ay*ay + az*az))
+
+        # convert to degrees
+        roll_deg = math.degrees(roll_acc)
+        pitch_deg = math.degrees(pitch_acc)
+
+        self.kalman_roll.set_angle(roll_deg)
+        self.kalman_pitch.set_angle(pitch_deg)
+
+    def read_sample(self):
+        bx, by, bz = self.bias
+
+        # ---- Read raw sensors ----
+        ax = read_word(self.bus, ACCEL_XOUT_H) / ACCEL_SF
+        ay = read_word(self.bus, ACCEL_XOUT_H + 2) / ACCEL_SF
+        az = read_word(self.bus, ACCEL_XOUT_H + 4) / ACCEL_SF
+
+        gx = read_word(self.bus, GYRO_XOUT_H)     / GYRO_SF - bx
         gy = read_word(self.bus, GYRO_XOUT_H + 2) / GYRO_SF - by
         gz = read_word(self.bus, GYRO_XOUT_H + 4) / GYRO_SF - bz
 
-        gyr = np.array([gx, gy, gz]) * np.pi / 180.0
-        acc = np.array([ax, ay, az])
+        # ---- Compute dt ----
+        now = time.time()
+        dt = now - self.last_time
+        self.last_time = now
 
-          # ---- REAL dt calculation ----
-        current = time.time()
-        dt = current - self.last_time
-        self.last_time = current
-        
-        # ---- protect against huge dt spikes (GUI lag, notifications, etc.) ----
-        if dt > 0.2:      # if delayed by >200ms, clamp to normal
+        # Clamp dt to avoid crazy jumps (e.g., GUI pauses)
+        if dt <= 0.0 or dt > 0.2:
             dt = 1.0 / SAMPLE_HZ
 
-        self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc, dt=dt)
+        # ---- Accel-based roll/pitch (radians) ----
+        # Common convention for MPU6050:
+        # roll  = atan2(ay, az)
+        # pitch = atan2(-ax, sqrt(ay^2 + az^2))
+        roll_acc = math.atan2(ay, az)
+        pitch_acc = math.atan2(-ax, math.sqrt(ay*ay + az*az))
 
-        roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
-                                       1 - 2*(self.q[1]**2 + self.q[2]**2)))
-        pitch = math.degrees(math.asin(2*(self.q[0]*self.q[2] - self.q[3]*self.q[1])))
-        yaw = math.degrees(math.atan2(2*(self.q[0]*self.q[3] + self.q[1]*self.q[2]),
-                                      1 - 2*(self.q[2]**2 + self.q[3]**2)))
+        roll_meas_deg = math.degrees(roll_acc)
+        pitch_meas_deg = math.degrees(pitch_acc)
 
+        # ---- Kalman filter for roll and pitch ----
+        roll_kf  = self.kalman_roll.get_angle(roll_meas_deg, gx, dt)
+        pitch_kf = self.kalman_pitch.get_angle(pitch_meas_deg, gy, dt)
+
+        # ---- Integrate yaw from gyro z (will still drift without magnetometer) ----
+        self.yaw += gz * dt
+        yaw_deg = self.yaw
+
+        # ---- Flex sensors ----
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
-        #return gx, gy, gz, ax, ay, az, *flex_vals
-        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
+
+        # Return filtered orientation + raw IMU data if you still need it
+        return roll_kf, pitch_kf, yaw_deg, gx, gy, gz, ax, ay, az, *flex_vals
+
 
     def close(self):
         self.spi.close()
@@ -147,7 +283,7 @@ class DataCollector:
 class SignLanguageGUI:
     def __init__(self, root):
         self.root = root
-        self.collector = DataCollector(SAMPLE_HZ)
+        self.collector = DataCollector()
         self.root.title("Sign Language Data Collector")
         self.root.geometry("700x600")
 
