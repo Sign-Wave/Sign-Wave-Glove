@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torch.utils.data import Dataset, DataLoader
 from torch import nn
+from lion_pytorch import Lion
 import pandas as pd
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
@@ -16,18 +17,19 @@ def train(dataloader, model, loss_func, optimizer):
     size = len(dataloader.dataset)
     model.train(mode=True)
     for batch, (X, y) in enumerate(dataloader):
-        X, y = X.to(device), y.to(device)
+        noisy_X = X + 0.02*torch.randn_like(X)
+        noisy_X, y = noisy_X.to(device), y.to(device)
 
         optimizer.zero_grad()
 
-        y_prediction = model(X)
+        y_prediction = model(noisy_X)
         loss = loss_func(y_prediction, y)
 
         loss.backward()
         optimizer.step()
 
         if batch % 25 == 0:
-            loss, current = loss.item(), (batch+1)*len(X)
+            loss, current = loss.item(), (batch+1)*len(noisy_X)
             print(f"Batch:{batch}|loss: {loss:8f} [{current}|{size}]")
 
 def test(dataloader, model, label_encoder):
@@ -234,7 +236,8 @@ if __name__=='__main__':
             print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
 
     loss_func = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=1e-5)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    #optimizer = Lion(model.parameters(), lr=learning_rate, weight_decay=1e-2)
 
     epochs = int(args.epochs)
     if not (args.test and MODEL_LOAD_SUCCESS):

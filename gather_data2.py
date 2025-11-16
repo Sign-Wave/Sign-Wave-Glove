@@ -159,6 +159,12 @@ class SignLanguageGUI:
                             command=lambda l=letter: self.show_sign(l))
             btn.grid(row=i//8, column=i%8, padx=5, pady=5)
             self.buttons[letter] = btn
+        # --- REST Button ---
+        self.rest_button = tk.Button(root, text="REST", width=8, height=2,
+                                    font=("Arial", 14),
+                                    bg="#f0f0f0",
+                                    command=lambda: self.show_sign("REST"))
+        self.rest_button.pack(pady=10)
 
         # Sign Image
         self.image_label = tk.Label(root)
