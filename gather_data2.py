@@ -147,7 +147,7 @@ class DataCollector:
 class SignLanguageGUI:
     def __init__(self, root):
         self.root = root
-        self.collector = DataCollector()
+        self.collector = DataCollector(SAMPLE_HZ)
         self.root.title("Sign Language Data Collector")
         self.root.geometry("700x600")
 
