@@ -86,16 +86,23 @@ def calibrate(bus, calibration_time=CALIBRATION_TIME):
 # Data Collector
 # ---------------------------
 class DataCollector:
-    def __init__(self):
+    def __init__(self, sample_Hz):
         self.spi = open_spi()
         self.bus = smbus2.SMBus(1)
         setup_mpu(self.bus)
         self.fuse = Madgwick()
         self.q = np.array([1.0, 0.0, 0.0, 0.0])
         self.bias = (0, 0, 0)
+        self.sample_Hz = sample_Hz
+        self.last_time = time.time()
 
     def calibrate(self, calibration_time = CALIBRATION_TIME):
+        # reset orientation state
+        self.q = np.array([1.0, 0.0, 0.0, 0.0])
+        self.fuse = Madgwick()
+        # compute gyro bias
         self.bias = calibrate(self.bus, calibration_time)
+        self.last_time = time.time()
 
     def read_sample(self):
         bx, by, bz = self.bias
@@ -108,6 +115,16 @@ class DataCollector:
 
         gyr = np.array([gx, gy, gz]) * np.pi / 180.0
         acc = np.array([ax, ay, az])
+
+          # ---- REAL dt calculation ----
+        current = time.time()
+        dt = current - self.last_time
+        self.last_time = current
+        
+        # ---- protect against huge dt spikes (GUI lag, notifications, etc.) ----
+        if dt > 0.2:      # if delayed by >200ms, clamp to normal
+            dt = 1.0 / SAMPLE_HZ
+
         self.q = self.fuse.updateIMU(q=self.q, gyr=gyr, acc=acc)
 
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
@@ -117,6 +134,7 @@ class DataCollector:
                                       1 - 2*(self.q[2]**2 + self.q[3]**2)))
 
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
+        #return gx, gy, gz, ax, ay, az, *flex_vals
         return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals
 
     def close(self):
@@ -129,7 +147,7 @@ class DataCollector:
 class SignLanguageGUI:
     def __init__(self, root):
         self.root = root
-        self.collector = DataCollector()
+        self.collector = DataCollector(SAMPLE_HZ)
         self.root.title("Sign Language Data Collector")
         self.root.geometry("700x600")
 
@@ -153,6 +171,12 @@ class SignLanguageGUI:
                             command=lambda l=letter: self.show_sign(l))
             btn.grid(row=i//8, column=i%8, padx=5, pady=5)
             self.buttons[letter] = btn
+        # --- REST Button ---
+        self.rest_button = tk.Button(root, text="REST", width=8, height=2,
+                                    font=("Arial", 14),
+                                    bg="#f0f0f0",
+                                    command=lambda: self.show_sign("REST"))
+        self.rest_button.pack(pady=10)
 
         # Sign Image
         self.image_label = tk.Label(root)
@@ -170,7 +194,7 @@ class SignLanguageGUI:
         if not os.path.exists(CSV_FILE):
             with open(CSV_FILE, 'w', newline='') as f:
                 writer = csv.writer(f)
-                headers = ["label", "roll", "pitch", "yaw", "gx", "gy", "gz",
+                headers = ["label", "gx", "gy", "gz",
                            "ax", "ay", "az"] + [f"flex{i}" for i in range(5)]
                 writer.writerow(headers)
 

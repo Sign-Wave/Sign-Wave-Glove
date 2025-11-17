@@ -14,7 +14,7 @@ import numpy as np
 
 RED_PIN = 23
 GREEN_PIN = 24
-SAMPLE_HZ = 15
+SAMPLE_HZ = 3
 
 STABLE_CNT = 15
 STABLE_CNT_LOCK = threading.Lock()
@@ -37,7 +37,7 @@ MONGO_URI = "mongodb+srv://kylemendes65:signwave1234@signwavesensor.hrn11.mongod
 client = MongoClient(MONGO_URI)
 
 
-collect_data = DataCollector()
+collect_data = DataCollector(sample_Hz=SAMPLE_HZ)
 
 # Ensure correct database and collection
 db = client['asl_data']
@@ -240,17 +240,19 @@ def translate_FSM():
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if (detected_label == curr_sign) and (confidence > 0.6):
+                if (detected_label == curr_sign) and (confidence > 0.5):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
+                    print(f"               [{detect_cnt}/{__stable_cnt}]")
+                    if detect_cnt >= __stable_cnt:
+                        detect_cnt = 0
+                        state = state = translate_e.SEND_SIGN
                 else:
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt = 0
 
-                if detect_cnt >= __stable_cnt:
-                    state = state = translate_e.SEND_SIGN
 
             case translate_e.SEND_SIGN:
                 print(f"{time.time()}: Sending detected letter {curr_sign}")
