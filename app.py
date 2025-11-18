@@ -211,13 +211,16 @@ def translate_FSM():
                 state = translate_e.DETECT_RELAX
             case translate_e.DETECT_RELAX:
                 time.sleep(1/SAMPLE_HZ)
-                roll, pitch, yaw, _, _, _, _, _, _, thumb_flex, index_flex, middle_flex, ring_flex, pinky_flex = collect_data.read_sample()
 
+                data = collect_data.read_sample()
+                np_data = np.array(data, dtype=np.float32)
 
-                print(f"roll:{roll} pitch:{pitch} yaw:{yaw}")
-                print(f"thumb_flex:{thumb_flex} index_flex:{index_flex} middle_flex:{middle_flex} ring_flex:{ring_flex} pinky_flex:{pinky_flex}")
-                print("")
-                if (roll < 20) and (pitch < 20) and (yaw < 20) and (thumb_flex < 900) and (index_flex < 900) and (middle_flex < 900) and (ring_flex < 900) and (pinky_flex < 900):
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
+                
+                print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
+                print(f"              data: {data}")
+
+                if detected_label == "RELAX":
                     print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
@@ -235,12 +238,12 @@ def translate_FSM():
                 data = collect_data.read_sample()
                 np_data = np.array(data, dtype=np.float32)
 
-                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, data, CONF_THRESHOLD)
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
                 
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if (detected_label == curr_sign) and (confidence > 0.5):
+                if (detected_label == curr_sign) and (detected_label != "RELAX") and (confidence > 0.5):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
