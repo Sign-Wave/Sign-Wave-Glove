@@ -28,8 +28,8 @@ STOP_TRAIN = threading.Event()
 CONF_THRESHOLD = 0.75
 
 
-green_led = led(GREEN_PIN)
-red_led = led(RED_PIN)
+green_led = led(GREEN_PIN, 0, 1)
+red_led = led(RED_PIN, 0, 1)
 
 
 # MongoDB Configuration
