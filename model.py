@@ -121,8 +121,12 @@ class SignWaveNetwork(nn.Module):
     def __init__(self, input_dim, num_classes):
         super(SignWaveNetwork, self).__init__()
         self.linear_ReLU_stack = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(input_dim, 256),
             nn.ReLU(),
+            nn.BatchNorm1d(256),
+            nn.Dropout(0.3),
+            nn.ReLU(),
+            nn.Linear(256, 128),
             nn.BatchNorm1d(128),
             nn.Dropout(0.3),
             nn.Linear(128, 128),
@@ -187,7 +191,7 @@ if __name__=='__main__':
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
-    learning_rate = 1e-5
+    learning_rate = 1e-4
 
     dataset_file = "sign_language_data_synth.csv"
 

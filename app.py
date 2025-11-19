@@ -220,12 +220,12 @@ def translate_FSM():
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if detected_label == "RELAX":
+                if detected_label == "REST":
                     print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
                         detect_cnt = 0
-                        socketio.emit('letter_detected', {'letter':'Relaxed'})
+                        socketio.emit('letter_detected', {'letter':'RELAX'})
                         state = translate_e.DETECT_SIGN
                     else:
                         detect_cnt += 1
