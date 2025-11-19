@@ -187,9 +187,9 @@ if __name__=='__main__':
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
-    learning_rate = 1e-4
+    learning_rate = 1e-5
 
-    dataset_file = "sign_language_data_copper_synth.csv"
+    dataset_file = "sign_language_data_synth.csv"
 
 
     df = pd.read_csv(dataset_file)
@@ -235,7 +235,7 @@ if __name__=='__main__':
             print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
 
     loss_func = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     #optimizer = Lion(model.parameters(), lr=learning_rate, weight_decay=1e-2)
 
     epochs = int(args.epochs)
