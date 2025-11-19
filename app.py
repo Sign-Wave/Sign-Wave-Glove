@@ -14,7 +14,7 @@ import numpy as np
 
 RED_PIN = 23
 GREEN_PIN = 24
-SAMPLE_HZ = 3
+SAMPLE_HZ = 7
 
 STABLE_CNT = 15
 STABLE_CNT_LOCK = threading.Lock()
