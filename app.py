@@ -243,7 +243,7 @@ def translate_FSM():
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if (detected_label == curr_sign) and (detected_label != "RELAX") and (confidence > 0.5):
+                if (detected_label == curr_sign) and (detected_label != "REST") and (confidence > 0.5):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
