@@ -186,6 +186,7 @@ def start_practice():
 
     practice_thread = threading.Thread(target=send_practice_data)
     practice_thread.start()
+    return jsonify(status="Starting")
     
     
 
@@ -200,6 +201,7 @@ def stop_practice():
         time.sleep(0.25)
         green_led.turn_off()
         buzzer.turn_off()
+    return jsonify(status="Stopping")
 
     
 
