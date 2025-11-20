@@ -179,13 +179,13 @@ def start_practice():
     global SAMPLE_HZ
     if PRACTICE_THREAD and PRACTICE_THREAD.is_alive():
         STOP_PRACTICE.set()
-        time.sleep(2/SAMPLE_HZ)
+        time.sleep(1)
 
     STOP_PRACTICE.clear()
     red_led.turn_on()
 
-    practice_thread = threading.Thread(target=send_practice_data)
-    practice_thread.start()
+    PRACTICE_THREAD = threading.Thread(target=send_practice_data)
+    PRACTICE_THREAD.start()
     return jsonify(status="Starting")
     
     
