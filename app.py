@@ -354,7 +354,7 @@ def send_practice_data():
                     print(f"               [{detect_cnt}/{STABLE_CNT}]")
                     if detect_cnt >= STABLE_CNT:
                         detect_cnt = 0
-                        state = state = translate_e.SEND_SIGN
+                        state = state = Practice_e.SEND_SIGN
                 else:
                     curr_sign = detected_label
                     curr_data = data
