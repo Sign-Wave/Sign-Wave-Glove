@@ -195,12 +195,13 @@ def stop_practice():
     global STOP_PRACTICE
     STOP_PRACTICE.set()
     red_led.turn_off()
-    for _ in range(0, 20):
+    for _ in range(0, 25):
         green_led.turn_on()
         buzzer.turn_on()
-        time.sleep(0.25)
+        time.sleep(0.1)
         green_led.turn_off()
         buzzer.turn_off()
+        time.sleep(0.1)
     
     return jsonify(status="Stopping")
 
