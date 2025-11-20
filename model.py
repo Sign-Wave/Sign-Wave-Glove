@@ -121,13 +121,17 @@ class SignWaveNetwork(nn.Module):
     def __init__(self, input_dim, num_classes):
         super(SignWaveNetwork, self).__init__()
         self.linear_ReLU_stack = nn.Sequential(
-            nn.Linear(input_dim, 128),
+            nn.Linear(input_dim, 256),
             nn.ReLU(),
-            nn.BatchNorm1d(128),
+            nn.LayerNorm(256),
             nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.LayerNorm(128),
+            nn.Dropout(0.3),
+            nn.ReLU(),
             nn.Linear(128, 128),
             nn.ReLU(),
-            nn.BatchNorm1d(128),
+            nn.LayerNorm(128),
             nn.Dropout(0.3),
             nn.Linear(128, 64),
             nn.ReLU(),
@@ -147,7 +151,7 @@ class SignWaveNetwork(nn.Module):
 # ---------------------------
 def load_model(model_path="signwave_model.pth", label_enc_path="label_encoder.pkl", scaler_path="scaler.pkl"):
     __device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    __model = SignWaveNetwork(14, 27)
+    __model = SignWaveNetwork(18, 27)
     __state = torch.load(model_path, map_location=__device)
     __model.load_state_dict(__state)
     __model.eval()
@@ -198,10 +202,10 @@ if __name__=='__main__':
     ic(input_dim)
 
 
-    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=42, stratify=df["label"])  # stratify keeps class balance
+    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=44, stratify=df["label"])  # stratify keeps class balance
     ic(df_train)
     ic(df_temp)
-    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=42, stratify=df_temp["label"])
+    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=44, stratify=df_temp["label"])
     df_train.to_csv("__train.csv", index=False)
     df_test.to_csv("__test.csv", index=False)
     df_valid.to_csv("__validate.csv", index=False)
@@ -235,7 +239,7 @@ if __name__=='__main__':
             print(f"\n\npth file cannot be found at ./{MODEL_FILE}.pth\n\n")
 
     loss_func = nn.CrossEntropyLoss()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     #optimizer = Lion(model.parameters(), lr=learning_rate, weight_decay=1e-2)
 
     epochs = int(args.epochs)

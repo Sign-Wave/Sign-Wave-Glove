@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit
 import time
@@ -14,7 +14,8 @@ import numpy as np
 
 RED_PIN = 23
 GREEN_PIN = 24
-SAMPLE_HZ = 3
+BUZZER_PIN = 6
+SAMPLE_HZ = 7
 
 STABLE_CNT = 15
 STABLE_CNT_LOCK = threading.Lock()
@@ -22,14 +23,16 @@ STABLE_CNT_LOCK = threading.Lock()
 TRANSLATE_FSM_THREAD = None
 STOP_TRANSLATE = threading.Event()
 
-TRAIN_FSM_THREAD = None
-STOP_TRAIN = threading.Event()
+PRACTICE_THREAD = None
+STOP_PRACTICE = threading.Event()
 
 CONF_THRESHOLD = 0.75
 
 
-green_led = led(GREEN_PIN)
-red_led = led(RED_PIN)
+green_led = led(GREEN_PIN, active_high=0, default=1, is_input=0)
+red_led = led(RED_PIN, active_high=0, default=1, is_input=0)
+buzzer = led(BUZZER_PIN, active_high=1, default=0, is_input=0)
+
 
 
 # MongoDB Configuration
@@ -132,6 +135,7 @@ def home():
 @app.route('/start_translate', methods=['POST'])
 def start_translate():
     global TRANSLATE_FSM_THREAD
+    global STOP_TRANSLATE
     if TRANSLATE_FSM_THREAD and TRANSLATE_FSM_THREAD.is_alive():
         return jsonify({'status':'already running'}), 400
     STOP_TRANSLATE.clear()
@@ -145,7 +149,7 @@ def start_translate():
         time.sleep(0.25)
         green_led.turn_off()
     green_led.turn_on(duration=5)
-    TRANSLATE_FSM_THREAD = threading.Thread(target=translate_FSM, daemon=True)
+    TRANSLATE_FSM_THREAD = threading.Thread(target=translate_FSM)
     TRANSLATE_FSM_THREAD.start()
     return jsonify(status="calibrated, and starting the translate FSM")
 
@@ -153,6 +157,56 @@ def start_translate():
 def stop_translate():
     STOP_TRANSLATE.set()
     return jsonify({'status': 'stopping the translate FSM'})
+
+@app.route('/calibrate', methods=['POST'])
+def calibrate_sensors():
+    calib_time = 5
+    t_end = time.time()+calib_time
+    threading.Thread(target=collect_data.calibrate, args=[calib_time]).start()
+    while time.time() < t_end:
+        red_led.turn_on()
+        time.sleep(0.25)
+        red_led.turn_off()
+        green_led.turn_on()
+        time.sleep(0.25)
+        green_led.turn_off()
+    return jsonify(status="Done calibration")
+
+@app.route("/start_practice", methods=['POST'])
+def start_practice():
+    global STOP_PRACTICE
+    global PRACTICE_THREAD
+    STOP_PRACTICE.set()
+    if PRACTICE_THREAD and PRACTICE_THREAD.is_alive():
+        STOP_PRACTICE.join(timeout=2)
+    PRACTICE_THREAD = None
+
+    STOP_PRACTICE.clear()
+    red_led.turn_on()
+
+    PRACTICE_THREAD = threading.Thread(target=send_practice_data)
+    PRACTICE_THREAD.start()
+    return jsonify(status="Starting")
+    
+    
+
+@app.route("/stop_practice", methods=['POST'])
+def stop_practice():
+    global STOP_PRACTICE
+    STOP_PRACTICE.set()
+    red_led.turn_off()
+    for _ in range(0, 25):
+        green_led.turn_on()
+        buzzer.turn_on()
+        time.sleep(0.1)
+        green_led.turn_off()
+        buzzer.turn_off()
+        time.sleep(0.1)
+    
+    return jsonify(status="Stopping")
+
+    
+
 
 @app.route('/sensor')
 def sensor_data():
@@ -211,18 +265,21 @@ def translate_FSM():
                 state = translate_e.DETECT_RELAX
             case translate_e.DETECT_RELAX:
                 time.sleep(1/SAMPLE_HZ)
-                roll, pitch, yaw, _, _, _, _, _, _, thumb_flex, index_flex, middle_flex, ring_flex, pinky_flex = collect_data.read_sample()
 
+                data = collect_data.read_sample()
+                np_data = np.array(data, dtype=np.float32)
 
-                print(f"roll:{roll} pitch:{pitch} yaw:{yaw}")
-                print(f"thumb_flex:{thumb_flex} index_flex:{index_flex} middle_flex:{middle_flex} ring_flex:{ring_flex} pinky_flex:{pinky_flex}")
-                print("")
-                if (roll < 20) and (pitch < 20) and (yaw < 20) and (thumb_flex < 900) and (index_flex < 900) and (middle_flex < 900) and (ring_flex < 900) and (pinky_flex < 900):
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
+                
+                print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
+                print(f"              data: {data}")
+
+                if detected_label == "REST":
                     print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
                     if detect_cnt >= __stable_cnt:
                         print("Detecting stable relaxed, moving on to detecting the sign")
                         detect_cnt = 0
-                        socketio.emit('letter_detected', {'letter':'Relaxed'})
+                        socketio.emit('letter_detected', {'letter':'RELAX'})
                         state = translate_e.DETECT_SIGN
                     else:
                         detect_cnt += 1
@@ -235,12 +292,12 @@ def translate_FSM():
                 data = collect_data.read_sample()
                 np_data = np.array(data, dtype=np.float32)
 
-                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, data, CONF_THRESHOLD)
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
                 
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if (detected_label == curr_sign) and (confidence > 0.5):
+                if (detected_label == curr_sign) and (detected_label != "REST") and (confidence > 0.5):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
@@ -262,60 +319,56 @@ def translate_FSM():
 
     return
 
-class training_e(Enum):
-    RESET_LEDS = 0
-    GET_CURR_SIGN = 1
-    CHECK_SIGN = 2
-    SET_LEDS = 3
-    SEND_LETTER = 4
-    TIMEOUT = 5
+class Practice_e(Enum):
+    DETECT_SIGN = 0
+    SEND_SIGN = 1
 
-def training_FSM(target_sign:str):
+def send_practice_data():
     """
     
     """
-    state = training_e.RESET_LEDS
     curr_sign = "?"
+    global STABLE_CNT
+    state = Practice_e.DETECT_SIGN
     curr_data = []
 
-    while not STOP_TRAIN.is_set():
-        match state:
-            case training_e.RESET_LEDS:
-                red_led.turn_on(-1) # keep red on
+    ml_model, scaler, label_encoder = model.load_model()
+    detect_cnt = 0
 
-            case training_e.GET_CURR_SIGN:
+    while not STOP_PRACTICE.is_set():
+        match state:
+            case Practice_e.DETECT_SIGN:
                 time.sleep(1/SAMPLE_HZ)
 
 
                 data = collect_data.read_sample()
                 np_data = np.array(data, dtype=np.float32)
 
-                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, data, CONF_THRESHOLD)
+                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
                 
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if detected_label == curr_sign:
+                if (detected_label == curr_sign) and (detected_label != "REST") and (confidence > 0.4):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
+                    print(f"               [{detect_cnt}/{STABLE_CNT}]")
+                    if detect_cnt >= STABLE_CNT:
+                        detect_cnt = 0
+                        state = state = Practice_e.SEND_SIGN
                 else:
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt = 0
-
-                if detect_cnt >= __stable_cnt:
-                    state = state = translate_e.SEND_SIGN
-            case training_e.CHECK_SIGN:
+                
+            case Practice_e.SEND_SIGN:
+                print("**************************************************")
+                print(f"{time.time()}: Sending detected letter {curr_sign}")
+                print("**************************************************")
+                socketio.emit('letter_detected', {'letter':curr_sign, 'sensor_data':curr_data})
                 time.sleep(0.5)
-                if detected_label != target_sign:
-                    pass
-            case training_e.SET_LEDS:
-                pass
-            case training_e.SEND_LETTER:
-                pass
-            case training_e.TIMEOUT:
-                pass
+                state = Practice_e.DETECT_SIGN
     
     
 
