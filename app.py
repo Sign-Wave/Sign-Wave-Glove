@@ -176,10 +176,10 @@ def calibrate_sensors():
 def start_practice():
     global STOP_PRACTICE
     global PRACTICE_THREAD
-    global SAMPLE_HZ
+    STOP_PRACTICE.set()
     if PRACTICE_THREAD and PRACTICE_THREAD.is_alive():
-        STOP_PRACTICE.set()
-        time.sleep(1)
+        STOP_PRACTICE.join(timeout=2)
+    PRACTICE_THREAD = None
 
     STOP_PRACTICE.clear()
     red_led.turn_on()
@@ -201,6 +201,7 @@ def stop_practice():
         time.sleep(0.25)
         green_led.turn_off()
         buzzer.turn_off()
+    
     return jsonify(status="Stopping")
 
     
