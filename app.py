@@ -172,7 +172,7 @@ def calibrate_sensors():
         green_led.turn_off()
     return jsonify(status="Done calibration")
 
-@app.route("/start_practice")
+@app.route("/start_practice", methods=['POST'])
 def start_practice():
     global STOP_PRACTICE
     global PRACTICE_THREAD
@@ -190,7 +190,7 @@ def start_practice():
     
     
 
-@app.route("/stop_practice")
+@app.route("/stop_practice", methods=['POST'])
 def stop_practice():
     global STOP_PRACTICE
     STOP_PRACTICE.set()
