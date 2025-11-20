@@ -178,7 +178,7 @@ def start_practice():
     global PRACTICE_THREAD
     STOP_PRACTICE.set()
     if PRACTICE_THREAD and PRACTICE_THREAD.is_alive():
-        STOP_PRACTICE.join(timeout=2)
+        PRACTICE_THREAD.join(timeout=2)
     PRACTICE_THREAD = None
 
     STOP_PRACTICE.clear()
@@ -195,7 +195,7 @@ def stop_practice():
     global STOP_PRACTICE
     STOP_PRACTICE.set()
     red_led.turn_off()
-    for _ in range(0, 25):
+    for _ in range(0, 13):
         green_led.turn_on()
         buzzer.turn_on()
         time.sleep(0.1)
