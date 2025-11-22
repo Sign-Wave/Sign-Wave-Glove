@@ -375,5 +375,5 @@ def send_practice_data():
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, cleanup)
     #socketio.start_background_task(emit_sensor_data)
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000,  allow_unsafe_werkzeug=True)
     signal.pause()
