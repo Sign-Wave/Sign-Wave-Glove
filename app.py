@@ -79,24 +79,6 @@ def identify_letter(sensor_values):
     """Compare sensor values against stored letter ranges in MongoDB"""
     try:
         print(f"Sensor values: {sensor_values}")  # Debugging log
-        """ 
-        for entry in collection.find():  
-            # print(f"Checking entry: {entry}")  # Print MongoDB entries for debugging
-
-           match = all(
-                int(entry.get(f'flex_sensor_{i+1}_min', 0)) <= sensor_values[i] <= int(entry.get(f'flex_sensor_{i+1}_max', 1023))
-                for i in range(5)
-            )
-
-            if (
-            if match:
-                detected_letter = entry.get('letter', '?')
-                red_led.turn_off()
-                green_led.turn_on(2)
-                # print(f"Match found! Letter: {detected_letter}")
-                return detected_letter
-
-        """
         if sensor_values[0]>990 and sensor_values[1] >990 and sensor_values[2]>990 and sensor_values[3]>990 and sensor_values[4] < 500:
             print("A")
             return "A"
@@ -178,7 +160,7 @@ def start_practice():
     global PRACTICE_THREAD
     STOP_PRACTICE.set()
     if PRACTICE_THREAD and PRACTICE_THREAD.is_alive():
-        STOP_PRACTICE.join(timeout=2)
+        PRACTICE_THREAD.join(timeout=2)
     PRACTICE_THREAD = None
 
     STOP_PRACTICE.clear()
@@ -195,7 +177,7 @@ def stop_practice():
     global STOP_PRACTICE
     STOP_PRACTICE.set()
     red_led.turn_off()
-    for _ in range(0, 25):
+    for _ in range(0, 13):
         green_led.turn_on()
         buzzer.turn_on()
         time.sleep(0.1)
@@ -234,22 +216,19 @@ def cleanup(signal_received, frame):
     sys.exit(0)
 
 class translate_e(Enum):
-    LATCH_PARAMS_AND_FLAGS = 0
-    DETECT_RELAX = 1
     DETECT_SIGN  = 2
     SEND_SIGN    = 3
 
 def translate_FSM():
-    state = translate_e.DETECT_RELAX
+    state = translate_e.DETECT_SIGN
     curr_sign = "?"
     curr_data = []
     global STABLE_CNT
     global STOP_TRANSLATE
     global SAMPLE_HZ
-    global CONF_THRESHOLD
-    __stable_cnt = 15
-    __stop_translate = False
     detect_cnt = 0
+
+    time_step = (1/SAMPLE_HZ)/STABLE_CNT
 
 
     ml_model, scaler, label_encoder = model.load_model()
@@ -257,36 +236,14 @@ def translate_FSM():
 
     while not STOP_TRANSLATE.is_set():
         match state:
-            case translate_e.LATCH_PARAMS_AND_FLAGS:
-                time.sleep(0.5)
-                with STABLE_CNT_LOCK:
-                    __stable_cnt = STABLE_CNT
-
-                state = translate_e.DETECT_RELAX
-            case translate_e.DETECT_RELAX:
-                time.sleep(1/SAMPLE_HZ)
-
-                data = collect_data.read_sample()
-                np_data = np.array(data, dtype=np.float32)
-
-                detected_label, confidence = model.predict(ml_model, scaler, label_encoder, np_data, CONF_THRESHOLD)
-                
-                print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
-                print(f"              data: {data}")
-
-                if detected_label == "REST":
-                    print(f"Hand Relaxed [{detect_cnt+1}/{__stable_cnt}]")
-                    if detect_cnt >= __stable_cnt:
-                        print("Detecting stable relaxed, moving on to detecting the sign")
-                        detect_cnt = 0
-                        socketio.emit('letter_detected', {'letter':'RELAX'})
-                        state = translate_e.DETECT_SIGN
-                    else:
-                        detect_cnt += 1
-                else:
-                    detect_cnt = 0
             case translate_e.DETECT_SIGN:
-                time.sleep(1/SAMPLE_HZ)
+                if (detect_cnt != 0):
+                    green_led.turn_on()
+                    time.sleep(detect_cnt*time_step)
+                    green_led.turn_off()
+                    time.sleep((STABLE_CNT-detect_cnt)*time_step)
+                else:
+                    time.sleep(1/SAMPLE_HZ)
 
 
                 data = collect_data.read_sample()
@@ -297,25 +254,33 @@ def translate_FSM():
                 print(f"{time.time()}: Detected letter: {detected_label} (conf: {confidence})")
                 print(f"              data: {data}")
 
-                if (detected_label == curr_sign) and (detected_label != "REST") and (confidence > 0.5):
+                if (detected_label == curr_sign) and (confidence > 0.4):
                     curr_sign = detected_label
                     curr_data = data
                     detect_cnt+=1
-                    print(f"               [{detect_cnt}/{__stable_cnt}]")
-                    if detect_cnt >= __stable_cnt:
-                        detect_cnt = 0
+                    print(f"               [{detect_cnt}/{STABLE_CNT}]")
+                    if detect_cnt == STABLE_CNT:
+                        detect_cnt = 1
                         state = state = translate_e.SEND_SIGN
                 else:
                     curr_sign = detected_label
                     curr_data = data
-                    detect_cnt = 0
+                    detect_cnt = 1
 
 
             case translate_e.SEND_SIGN:
+                green_led.turn_off()
                 print(f"{time.time()}: Sending detected letter {curr_sign}")
                 socketio.emit('letter_detected', {'letter':curr_sign, 'sensor_data':curr_data})
-                time.sleep(1)
-                state = translate_e.LATCH_PARAMS_AND_FLAGS
+                if curr_sign=="RELAX":
+                    red_led.turn_on()
+                    time.sleep(2)
+                    red_led.turn_off()
+                else:
+                    green_led.turn_on()
+                    time.sleep(0.75)
+                    green_led.turn_off()
+                state = translate_e.DETECT_SIGN
 
     return
 
@@ -374,6 +339,5 @@ def send_practice_data():
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, cleanup)
-    #socketio.start_background_task(emit_sensor_data)
     socketio.run(app, host='0.0.0.0', port=5000,  allow_unsafe_werkzeug=True)
     signal.pause()
