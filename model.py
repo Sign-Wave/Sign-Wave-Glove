@@ -191,7 +191,7 @@ if __name__=='__main__':
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
-    learning_rate = 5e-5
+    learning_rate = 1e-5
 
     dataset_file = "sign_language_data_synth.csv"
 
@@ -202,10 +202,10 @@ if __name__=='__main__':
     ic(input_dim)
 
 
-    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=44, stratify=df["label"])  # stratify keeps class balance
+    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=42, stratify=df["label"])  # stratify keeps class balance
     ic(df_train)
     ic(df_temp)
-    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=44, stratify=df_temp["label"])
+    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=42, stratify=df_temp["label"])
     df_train.to_csv("__train.csv", index=False)
     df_test.to_csv("__test.csv", index=False)
     df_valid.to_csv("__validate.csv", index=False)

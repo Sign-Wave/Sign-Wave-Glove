@@ -237,13 +237,11 @@ def translate_FSM():
     while not STOP_TRANSLATE.is_set():
         match state:
             case translate_e.DETECT_SIGN:
-                if (detect_cnt != 0):
+                if (detect_cnt > 0.75*STABLE_CNT):
                     green_led.turn_on()
-                    time.sleep(detect_cnt*time_step)
+                time.sleep(1/SAMPLE_HZ)
+                if (detect_cnt > 0.75*STABLE_CNT):
                     green_led.turn_off()
-                    time.sleep((STABLE_CNT-detect_cnt)*time_step)
-                else:
-                    time.sleep(1/SAMPLE_HZ)
 
 
                 data = collect_data.read_sample()
@@ -272,7 +270,7 @@ def translate_FSM():
                 green_led.turn_off()
                 print(f"{time.time()}: Sending detected letter {curr_sign}")
                 socketio.emit('letter_detected', {'letter':curr_sign, 'sensor_data':curr_data})
-                if curr_sign=="RELAX":
+                if curr_sign=="REST":
                     red_led.turn_on()
                     time.sleep(2)
                     red_led.turn_off()
@@ -339,5 +337,5 @@ def send_practice_data():
 
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, cleanup)
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5000,  allow_unsafe_werkzeug=True)
     signal.pause()
