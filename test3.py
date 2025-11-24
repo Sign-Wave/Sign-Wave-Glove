@@ -1,11 +1,14 @@
-import pandas as pd
+from led import led
+import time
+BUZZER_PIN = 6
+buzzer = led(BUZZER_PIN, active_high=1, default=0, is_input=0)
 
-# Load your CSV
-df = pd.read_csv("sign_language_data.csv")
+target_time = time.time()+30
 
-# Filter rows where label == "L" and flex0 > 950
-filtered = df[(df["label"] == "D") & (df["flex0"] < 750)]
+while time.time() < target_time:
+    time.sleep(0.5)
 
-print(filtered)
+    buzzer.turn_on()
+    time.sleep(0.5)
+    buzzer.turn_off()
 
-filtered.to_csv("filtered_output.csv", index=False)
