@@ -11,6 +11,7 @@ from icecream import ic
 import seaborn as sns
 import joblib
 import argparse
+from torchviz import make_dot
 
 def train(dataloader, model, loss_func, optimizer):
     size = len(dataloader.dataset)
@@ -175,6 +176,26 @@ def predict(model, scaler, label_encoder, data_row, threshold=0.75):
         pred_idx = probs.argmax()
         pred_label = label_encoder.inverse_transform([pred_idx])[0]
         return pred_label, conf
+    
+# ------------------------
+# Visualization Script
+# ------------------------
+def visualize_network(input_dim=18, num_classes=27, output_file="network_visualization"):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = SignWaveNetwork(input_dim, num_classes).to(device)
+
+    # Use a dummy input to trace the model
+    dummy_input = torch.randn(1, input_dim).to(device)
+
+    # Use torchviz to create the graph
+    y = model(dummy_input)
+    dot = make_dot(y, params=dict(model.named_parameters()))
+
+    # Save to PNG and PDF
+    dot.format = "png"
+    dot.render(output_file, cleanup=True)
+
+    print(f"\nModel visualization saved as: {output_file}.png\n")
 
 if __name__=='__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -186,6 +207,8 @@ if __name__=='__main__':
                         help="Don't save the model")
     parser.add_argument("--epochs", action='store', default=35,
                         help="sets the number of epochs the model is trained for")
+    parser.add_argument("--visualize", action='store_true',
+                        help='visualize the model')
     args = parser.parse_args()
 
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
@@ -242,6 +265,10 @@ if __name__=='__main__':
     loss_func = nn.CrossEntropyLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-2)
     #optimizer = Lion(model.parameters(), lr=learning_rate, weight_decay=1e-2)
+
+    if args.visualize:
+        visualize_network() 
+        exit()
 
     epochs = int(args.epochs)
     if not (args.test and MODEL_LOAD_SUCCESS):
