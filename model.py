@@ -191,7 +191,7 @@ if __name__=='__main__':
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
-    learning_rate = 1e-5
+    learning_rate = 5e-4
 
     dataset_file = "sign_language_data_synth.csv"
 
