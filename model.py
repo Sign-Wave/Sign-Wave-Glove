@@ -193,8 +193,8 @@ if __name__=='__main__':
     MODEL_LOAD_SUCCESS = False
     learning_rate = 5e-5
 
-    #dataset_file = "sign_language_data_synth.csv"
-    dataset_file = "sign_language_data.csv"
+    dataset_file = "sign_language_data_synth.csv"
+    #dataset_file = "sign_language_data.csv"
 
 
     df = pd.read_csv(dataset_file)
