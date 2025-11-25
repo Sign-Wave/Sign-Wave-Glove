@@ -44,6 +44,7 @@ MIDDLE_FINGERPRINT_PIN = 19
 MIDDLE_INSIDE_TO_INDEX_PIN = 16
 MIDDLE_INSIDE_TO_RING_PIN = 13
 RING_TAPE_PIN = 12
+PALM_TAPE_PIN = 5
 
 
 
@@ -113,6 +114,7 @@ class DataCollector:
         self.thumb_tape = led(gpio_pin=THUMB_TAPE_PIN, default=1)
         self.middle_inside_to_index = led(gpio_pin=MIDDLE_INSIDE_TO_INDEX_PIN, default=1)
         self.index_outside = led(gpio_pin=INDEX_OUTSIDE_PIN, default=1)
+        self.palm_tape = led(gpio_pin=PALM_TAPE_PIN, default=1)
 
         self.thumb_tape.turn_on()
         self.middle_inside_to_index.turn_on()
