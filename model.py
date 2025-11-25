@@ -226,10 +226,10 @@ if __name__=='__main__':
     ic(input_dim)
 
 
-    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=42, stratify=df["label"])  # stratify keeps class balance
+    df_train, df_temp = train_test_split(df, test_size=0.3, random_state=45, stratify=df["label"])  # stratify keeps class balance
     ic(df_train)
     ic(df_temp)
-    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=42, stratify=df_temp["label"])
+    df_test, df_valid = train_test_split(df_temp, test_size=0.5, random_state=45, stratify=df_temp["label"])
     df_train.to_csv("__train.csv", index=False)
     df_test.to_csv("__test.csv", index=False)
     df_valid.to_csv("__validate.csv", index=False)
