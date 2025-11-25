@@ -122,11 +122,7 @@ class SignWaveNetwork(nn.Module):
     def __init__(self, input_dim, num_classes):
         super(SignWaveNetwork, self).__init__()
         self.linear_ReLU_stack = nn.Sequential(
-            nn.Linear(input_dim, 256),
-            nn.ReLU(),
-            nn.LayerNorm(256),
-            nn.Dropout(0.3),
-            nn.Linear(256, 128),
+            nn.Linear(input_dim, 128),
             nn.LayerNorm(128),
             nn.Dropout(0.3),
             nn.ReLU(),
