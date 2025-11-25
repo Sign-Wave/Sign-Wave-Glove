@@ -38,6 +38,7 @@ IMG_DIR = "./Sign-language-pics"
 
 # Copper tape GPIO pins
 THUMB_TAPE_PIN = 21
+THUMB_FINGERPRINT_PIN = 25
 INDEX_OUTSIDE_PIN = 20
 INDEX_INSIDE_PIN = 26
 MIDDLE_FINGERPRINT_PIN = 19
@@ -125,6 +126,7 @@ class DataCollector:
         self.middle_fingerprint = led(gpio_pin=MIDDLE_FINGERPRINT_PIN, is_input=1)
         self.middle_inside_to_ring = led(gpio_pin=MIDDLE_INSIDE_TO_RING_PIN, is_input=1)
         self.ring_tape = led(gpio_pin=RING_TAPE_PIN, is_input=1)
+        self.thumb_fingerprint = led(gpio_pin=THUMB_FINGERPRINT_PIN, is_input=1)
 
     def calibrate(self, calibration_time = CALIBRATION_TIME):
         self.thumb_tape.turn_on()
@@ -165,6 +167,7 @@ class DataCollector:
         middle_fingerprint_val = self.middle_fingerprint.read_value()
         middle_inside_to_ring_val = self.middle_inside_to_ring.read_value()
         ring_tape_val = self.ring_tape.read_value()
+        thumb_fingerprint_val = self.thumb_fingerprint.read_value()
 
         roll = math.degrees(math.atan2(2*(self.q[0]*self.q[1] + self.q[2]*self.q[3]),
                                        1 - 2*(self.q[1]**2 + self.q[2]**2)))
@@ -174,7 +177,7 @@ class DataCollector:
 
         flex_vals = [read_mcp3008_single(self.spi, ch) for ch in FLEX_CHANNELS]
         #return gx, gy, gz, ax, ay, az, *flex_vals
-        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals, index_inside_val, middle_fingerprint_val, middle_inside_to_ring_val, ring_tape_val
+        return roll, pitch, yaw, gx, gy, gz, ax, ay, az, *flex_vals, index_inside_val, middle_fingerprint_val, middle_inside_to_ring_val, ring_tape_val, thumb_fingerprint_val
 
     def close(self):
         self.spi.close()
