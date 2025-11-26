@@ -152,7 +152,7 @@ class SignWaveNetwork(nn.Module):
 # ---------------------------
 def load_model(model_path="signwave_model.pth", label_enc_path="label_encoder.pkl", scaler_path="scaler.pkl"):
     __device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    __model = SignWaveNetwork(18, 27)
+    __model = SignWaveNetwork(19, 27)
     __state = torch.load(model_path, map_location=__device)
     __model.load_state_dict(__state)
     __model.eval()
