@@ -124,16 +124,17 @@ class SignWaveNetwork(nn.Module):
         self.linear_ReLU_stack = nn.Sequential(
             nn.Linear(input_dim, 256),
             nn.ReLU(),
-            nn.BatchNorm1d(256),
+            nn.LayerNorm(256),
             nn.Dropout(0.3),
             nn.Linear(256, 128),
-            nn.BatchNorm1d(128),
-            nn.Dropout(0.3),
             nn.ReLU(),
-            nn.Linear(128, 128),
-            nn.ReLU(),
-            nn.BatchNorm1d(128),
+            nn.LayerNorm(128),
             nn.Dropout(0.3),
+            #nn.ReLU(),
+            #nn.Linear(128, 128),
+            #nn.ReLU(),
+            #nn.LayerNorm(128),
+            #nn.Dropout(0.3),
             nn.Linear(128, 64),
             nn.ReLU(),
             nn.Dropout(0.3),
@@ -180,7 +181,7 @@ def predict(model, scaler, label_encoder, data_row, threshold=0.75):
 # ------------------------
 # Visualization Script
 # ------------------------
-def visualize_network(input_dim=18, num_classes=27, output_file="network_visualization"):
+def visualize_network(input_dim=19, num_classes=27, output_file="network_visualization"):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SignWaveNetwork(input_dim, num_classes).to(device)
 
@@ -214,10 +215,10 @@ if __name__=='__main__':
     BATCH_SIZE = 64 if torch.cuda.is_available() else 32
     MODEL_FILE = "signwave_model"
     MODEL_LOAD_SUCCESS = False
-    learning_rate = 5e-5
+    learning_rate = 1e-4
 
-    #dataset_file = "sign_language_data_synth.csv"
-    dataset_file = "sign_language_data.csv"
+    dataset_file = "sign_language_data_synth.csv"
+    #dataset_file = "sign_language_data.csv"
 
 
     df = pd.read_csv(dataset_file)
