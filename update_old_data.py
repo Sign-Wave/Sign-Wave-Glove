@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 # --- 1. Define the new features per label ---
 # Fill these in with the correct values for each label.
@@ -34,13 +35,12 @@ extra_cols = [
 df = pd.read_csv("sign_language_data_old.csv")
 
 # ---- Apply replacements ---------------------------------------------
-def apply_extra(row):
-    label = row["label"]
-    if label in label_to_extra:
-        row[extra_cols] = label_to_extra[label]
-    return row
+df["thumbprint"] = (df["label"]=="T").astype(int)
+mask_DZ = df["label"].isin(["D", "Z"])
+df.loc[mask_DZ, "thumbprint"] = (np.random.rand(mask_DZ.sum()) < 0.15).astype(int)
 
-df = df.apply(apply_extra, axis=1)
+mask_G = df["label"] == "G"
+df.loc[mask_G, "thumbprint"] = (np.random.rand(mask_G.sum()) < 0.10).astype(int)
 
 # ---- Save modified CSV ----------------------------------------------
 df.to_csv("sign_language_data.csv", index=False)
